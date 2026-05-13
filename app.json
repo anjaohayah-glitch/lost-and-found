@@ -22,9 +22,9 @@
         "backgroundColor": "#ffffff"
       },
       "permissions": [
-        "NOTIFICATIONS",
-        "VIBRATE",
-        "RECEIVE_BOOT_COMPLETED"
+        "android.permission.NOTIFICATIONS",
+        "android.permission.VIBRATE",
+        "android.permission.RECEIVE_BOOT_COMPLETED"
       ],
       "predictiveBackGestureEnabled": false
     },
@@ -67,8 +67,10 @@
         "folder": "foxfindz/posts"
       },
       "eas": {
-        "projectId": ""
-      }
-    }
+        "projectId": "69cd594b-d714-493c-b9eb-95f3c596815f"
+      },
+      "router": {}
+    },
+    "owner": "ayaanjao"
   }
 }
