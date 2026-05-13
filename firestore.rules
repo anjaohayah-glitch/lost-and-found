@@ -1,0 +1,429 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function validUserDocument(data) {
+      return data.keys().hasAll([
+          'name',
+          'email',
+          'role',
+          'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'name',
+          'email',
+          'program',
+          'yearLevel',
+          'role',
+          'isOnline',
+          'fcmToken',
+          'createdAt'
+        ]) &&
+        data.name is string &&
+        data.name.size() > 0 &&
+        data.email is string &&
+        data.email.size() > 0 &&
+        (data.role == 'user' || data.role == 'admin') &&
+        data.createdAt is timestamp &&
+        (
+          !data.keys().hasAny(['program']) ||
+          (data.program is string && data.program.size() > 0)
+        ) &&
+        (
+          !data.keys().hasAny(['yearLevel']) ||
+          (data.yearLevel is string && data.yearLevel.size() > 0)
+        ) &&
+        (
+          !data.keys().hasAny(['isOnline']) ||
+          data.isOnline is bool
+        ) &&
+        (
+          !data.keys().hasAny(['fcmToken']) ||
+          data.fcmToken == null ||
+          data.fcmToken is string
+        );
+    }
+
+    function validUserCreate(data) {
+      return validUserDocument(data) &&
+        data.keys().hasAll([
+          'program',
+          'yearLevel',
+          'isOnline',
+          'fcmToken'
+        ]) &&
+        data.role == 'user' &&
+        data.email == request.auth.token.email;
+    }
+
+    function validUserUpdate(userId) {
+      return isOwner(userId) &&
+        validUserDocument(request.resource.data) &&
+        request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          'name',
+          'program',
+          'yearLevel',
+          'isOnline',
+          'fcmToken'
+        ]) &&
+        request.resource.data.email == resource.data.email &&
+        request.resource.data.role == resource.data.role &&
+        request.resource.data.createdAt == resource.data.createdAt;
+    }
+
+    function validPostCreate(data) {
+      return signedIn() &&
+        data.keys().hasAll([
+          'type',
+          'title',
+          'description',
+          'category',
+          'location',
+          'imageUrl',
+          'userId',
+          'userName',
+          'userEmail',
+          'status',
+          'createdAt',
+          'approvedAt',
+          'approvedBy'
+        ]) &&
+        data.keys().hasOnly([
+          'type',
+          'title',
+          'description',
+          'category',
+          'location',
+          'imageUrl',
+          'userId',
+          'userName',
+          'userEmail',
+          'status',
+          'createdAt',
+          'approvedAt',
+          'approvedBy'
+        ]) &&
+        (data.type == 'lost' || data.type == 'found') &&
+        data.title is string &&
+        data.title.size() > 0 &&
+        data.description is string &&
+        data.description.size() > 0 &&
+        data.category is string &&
+        data.category.size() > 0 &&
+        data.location is string &&
+        data.location.size() > 0 &&
+        (data.imageUrl == null || data.imageUrl is string) &&
+        data.userId == request.auth.uid &&
+        data.userName is string &&
+        data.userName.size() > 0 &&
+        (data.userEmail == null || data.userEmail == request.auth.token.email) &&
+        data.status == 'pending' &&
+        data.createdAt is timestamp &&
+        data.approvedAt == null &&
+        data.approvedBy == null;
+    }
+
+    function postContentUnchanged() {
+      return request.resource.data.type == resource.data.type &&
+        request.resource.data.title == resource.data.title &&
+        request.resource.data.description == resource.data.description &&
+        request.resource.data.category == resource.data.category &&
+        request.resource.data.location == resource.data.location &&
+        request.resource.data.imageUrl == resource.data.imageUrl &&
+        request.resource.data.userId == resource.data.userId &&
+        request.resource.data.userName == resource.data.userName &&
+        request.resource.data.userEmail == resource.data.userEmail &&
+        request.resource.data.createdAt == resource.data.createdAt;
+    }
+
+    function validApprovePostUpdate() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          'status',
+          'approvedAt',
+          'approvedBy'
+        ]) &&
+        resource.data.status == 'pending' &&
+        request.resource.data.status == 'approved' &&
+        request.resource.data.approvedAt is timestamp &&
+        request.resource.data.approvedBy == request.auth.uid &&
+        postContentUnchanged();
+    }
+
+    function validRejectPostUpdate() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          'status'
+        ]) &&
+        resource.data.status == 'pending' &&
+        request.resource.data.status == 'rejected' &&
+        request.resource.data.approvedAt == resource.data.approvedAt &&
+        request.resource.data.approvedBy == resource.data.approvedBy &&
+        postContentUnchanged();
+    }
+
+    function validResolvePostUpdate() {
+      return request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          'status'
+        ]) &&
+        resource.data.status == 'approved' &&
+        request.resource.data.status == 'resolved' &&
+        request.resource.data.approvedAt == resource.data.approvedAt &&
+        request.resource.data.approvedBy == resource.data.approvedBy &&
+        postContentUnchanged();
+    }
+
+    function validNotificationDocument(data) {
+      return data.keys().hasAll([
+          'userId',
+          'message',
+          'read',
+          'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'userId',
+          'message',
+          'read',
+          'createdAt',
+          'postId',
+          'type'
+        ]) &&
+        data.userId is string &&
+        data.userId.size() > 0 &&
+        data.message is string &&
+        data.message.size() > 0 &&
+        data.read is bool &&
+        data.createdAt is timestamp &&
+        (
+          !data.keys().hasAny(['postId']) ||
+          data.postId == null ||
+          data.postId is string
+        ) &&
+        (
+          !data.keys().hasAny(['type']) ||
+          (
+            data.type is string &&
+            (
+              data.type == 'post_approved' ||
+              data.type == 'post_rejected'
+            )
+          )
+        );
+    }
+
+    function validConversationDocument(data) {
+      return data.keys().hasAll([
+          'participantIds',
+          'lastMessageAt'
+        ]) &&
+        data.keys().hasOnly([
+          'participantIds',
+          'participantNames',
+          'postId',
+          'postTitle',
+          'postType',
+          'postLocation',
+          'postStatus',
+          'lastMessage',
+          'lastMessageAt',
+          'unreadBy'
+        ]) &&
+        data.participantIds is list &&
+        data.participantIds.size() >= 2 &&
+        request.auth.uid in data.participantIds &&
+        data.lastMessageAt is timestamp &&
+        (
+          !data.keys().hasAny(['participantNames']) ||
+          data.participantNames is map
+        ) &&
+        (
+          !data.keys().hasAny(['postId']) ||
+          data.postId == null ||
+          data.postId is string
+        ) &&
+        (
+          !data.keys().hasAny(['postTitle']) ||
+          data.postTitle == null ||
+          data.postTitle is string
+        ) &&
+        (
+          !data.keys().hasAny(['postType']) ||
+          data.postType == null ||
+          data.postType == 'lost' ||
+          data.postType == 'found'
+        ) &&
+        (
+          !data.keys().hasAny(['postLocation']) ||
+          data.postLocation == null ||
+          data.postLocation is string
+        ) &&
+        (
+          !data.keys().hasAny(['postStatus']) ||
+          data.postStatus == null ||
+          data.postStatus == 'pending' ||
+          data.postStatus == 'approved' ||
+          data.postStatus == 'rejected' ||
+          data.postStatus == 'resolved'
+        ) &&
+        (
+          !data.keys().hasAny(['lastMessage']) ||
+          data.lastMessage == null ||
+          data.lastMessage is string
+        ) &&
+        (
+          !data.keys().hasAny(['unreadBy']) ||
+          data.unreadBy is list
+        );
+    }
+
+    function validConversationUpdate() {
+      return request.auth.uid in resource.data.participantIds &&
+        request.resource.data.participantIds == resource.data.participantIds &&
+        request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          'participantNames',
+          'postId',
+          'postTitle',
+          'postType',
+          'postLocation',
+          'postStatus',
+          'lastMessage',
+          'lastMessageAt',
+          'unreadBy'
+        ]);
+    }
+
+    function validMessageDocument(data) {
+      return data.keys().hasAll([
+          'senderId',
+          'createdAt',
+          'seen'
+        ]) &&
+        data.keys().hasOnly([
+          'senderId',
+          'text',
+          'imageUrl',
+          'createdAt',
+          'seen'
+        ]) &&
+        data.senderId == request.auth.uid &&
+        data.createdAt is timestamp &&
+        data.seen is bool &&
+        (
+          !data.keys().hasAny(['text']) ||
+          data.text == null ||
+          (data.text is string && data.text.size() > 0)
+        ) &&
+        (
+          !data.keys().hasAny(['imageUrl']) ||
+          data.imageUrl == null ||
+          data.imageUrl is string
+        );
+    }
+
+    function validRewardDocument(data) {
+      return data.keys().hasAll([
+          'userId',
+          'title',
+          'points',
+          'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'userId',
+          'title',
+          'description',
+          'points',
+          'createdAt'
+        ]) &&
+        data.userId is string &&
+        data.userId.size() > 0 &&
+        data.title is string &&
+        data.title.size() > 0 &&
+        data.points is int &&
+        data.points > 0 &&
+        data.createdAt is timestamp &&
+        (
+          !data.keys().hasAny(['description']) ||
+          data.description is string
+        );
+    }
+
+    match /users/{userId} {
+      allow create: if validUserCreate(request.resource.data) && isOwner(userId);
+      allow read: if isOwner(userId);
+      allow update: if validUserUpdate(userId);
+      allow delete: if false;
+    }
+
+    match /posts/{postId} {
+      allow create: if validPostCreate(request.resource.data);
+      allow read: if resource.data.status == 'approved' || isAdmin() || isOwner(resource.data.userId);
+      allow update: if isAdmin() &&
+        (validApprovePostUpdate() || validRejectPostUpdate() || validResolvePostUpdate());
+      allow delete: if false;
+    }
+
+    match /notifications/{notificationId} {
+      allow create: if isAdmin() &&
+        validNotificationDocument(request.resource.data) &&
+        request.resource.data.read == false &&
+        exists(/databases/$(database)/documents/users/$(request.resource.data.userId));
+      allow read: if signedIn() && resource.data.userId == request.auth.uid;
+      allow update: if signedIn() &&
+        resource.data.userId == request.auth.uid &&
+        validNotificationDocument(request.resource.data) &&
+        request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          'read'
+        ]) &&
+        request.resource.data.read == true;
+      allow delete: if false;
+    }
+
+    match /conversations/{conversationId} {
+      allow read: if signedIn() &&
+        request.auth.uid in resource.data.participantIds;
+      allow create: if signedIn() &&
+        validConversationDocument(request.resource.data);
+      allow update: if signedIn() &&
+        request.auth.uid in resource.data.participantIds &&
+        validConversationUpdate();
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if signedIn() &&
+          exists(/databases/$(database)/documents/conversations/$(conversationId)) &&
+          request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        allow create: if signedIn() &&
+          exists(/databases/$(database)/documents/conversations/$(conversationId)) &&
+          request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds &&
+          validMessageDocument(request.resource.data);
+        allow update, delete: if false;
+      }
+    }
+
+    match /rewards/{rewardId} {
+      allow read: if signedIn() &&
+        validRewardDocument(resource.data) &&
+        resource.data.userId == request.auth.uid;
+      allow create: if isAdmin() &&
+        validRewardDocument(request.resource.data) &&
+        exists(/databases/$(database)/documents/users/$(request.resource.data.userId));
+      allow update, delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

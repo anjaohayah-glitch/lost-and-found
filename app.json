@@ -1,0 +1,74 @@
+{
+  "expo": {
+    "name": "FoxFindz",
+    "slug": "foxfindz",
+    "scheme": "foxfind",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FF6B35"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.foxfindz.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "permissions": [
+        "NOTIFICATIONS",
+        "VIBRATE",
+        "RECEIVE_BOOT_COMPLETED"
+      ],
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/adaptive-icon.png",
+          "color": "#FF6B35",
+          "defaultChannel": "foxfindz"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow FoxFindz to access photos",
+          "cameraPermission": "Allow FoxFindz to use your camera to photograph lost and found items",
+          "microphonePermission": false
+        }
+      ]
+    ],
+    "extra": {
+      "firebase": {
+        "apiKey": "AIzaSyBkQ_yVwL_0CTmU2eT_UCIblT3yONRQ0ds",
+        "authDomain": "findz-86e7c.firebaseapp.com",
+        "projectId": "findz-86e7c",
+        "storageBucket": "findz-86e7c.firebasestorage.app",
+        "messagingSenderId": "812350655101",
+        "appId": "1:812350655101:web:375461106d9061cc33bf14",
+        "measurementId": "G-QKDQ7LQL83"
+      },
+      "cloudinary": {
+        "cloudName": "",
+        "uploadPreset": "",
+        "folder": "foxfindz/posts"
+      },
+      "eas": {
+        "projectId": ""
+      }
+    }
+  }
+}
