@@ -23,6 +23,7 @@ import type { PostType } from '../src/types/post';
 import { FIREBASE_SETUP_MESSAGE, auth, db, firebaseReady } from '../services/firebase';
 import { uploadPostImage } from '../services/imageHosting';
 import { useStore } from '../store/useStore';
+import { hapticLight, hapticMedium, hapticSuccess, hapticWarning } from '../utils/haptics';
 
 interface PostDraft {
   title: string;
@@ -105,6 +106,8 @@ export default function PostForm({ type }: PostFormProps) {
   };
 
   const showImageOptions = () => {
+    hapticLight();
+
     Alert.alert('Add Photo', 'Choose how to add a photo', [
       { text: 'Take Photo', onPress: () => void takePhoto() },
       { text: 'Choose from Library', onPress: () => void pickImage() },
@@ -114,15 +117,20 @@ export default function PostForm({ type }: PostFormProps) {
   };
 
   const handleSubmit = async () => {
+    hapticMedium();
+
     if (!form.title.trim() || !form.description.trim()) {
+      hapticWarning();
       Alert.alert('Missing Fields', 'Please fill in the item title and description.');
       return;
     }
     if (!form.category || !form.location) {
+      hapticWarning();
       Alert.alert('Missing Fields', 'Please choose a category and location.');
       return;
     }
     if (isFound && !form.imageUri) {
+      hapticWarning();
       Alert.alert('Photo Required', 'Found items must include a photo for verification.');
       return;
     }
@@ -180,6 +188,7 @@ export default function PostForm({ type }: PostFormProps) {
 
       await clearDraft(draftKey);
       setForm(DEFAULT_DRAFT);
+      hapticSuccess();
       Alert.alert('Submitted! 🦊', 'Your post is waiting for admin approval. You\'ll be notified once it\'s live.');
       router.replace('/(tabs)/home');
     } catch (error) {
@@ -276,7 +285,10 @@ export default function PostForm({ type }: PostFormProps) {
           return (
             <TouchableOpacity
               key={cat.value}
-              onPress={() => updateField('category', cat.value)}
+              onPress={() => {
+                hapticLight();
+                updateField('category', cat.value);
+              }}
               style={[
                 styles.chip,
                 { backgroundColor: selected ? accentColor : colors.surface, borderColor: selected ? accentColor : colors.border },
@@ -298,7 +310,10 @@ export default function PostForm({ type }: PostFormProps) {
           return (
             <TouchableOpacity
               key={loc}
-              onPress={() => updateField('location', loc)}
+              onPress={() => {
+                hapticLight();
+                updateField('location', loc);
+              }}
               style={[
                 styles.chip,
                 { backgroundColor: selected ? accentColor : colors.surface, borderColor: selected ? accentColor : colors.border },

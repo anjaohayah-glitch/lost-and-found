@@ -18,6 +18,7 @@ import { APP_COLORS } from '../../src/constants/colors';
 import type { TimestampLike } from '../../src/types/post';
 import { formatPostDate, resolvePostDate } from '../../src/utils/timeAgo';
 import { useStore } from '../../store/useStore';
+import { hapticLight } from '../../utils/haptics';
 
 interface Conversation {
   id: string;
@@ -206,6 +207,7 @@ export default function MessagesScreen() {
   }, [conversations, activeTab, search, uid]);
 
   const handleOpen = (item: Conversation) => {
+    hapticLight();
     // Navigate to the actual chat thread, not the post detail
     router.push(`/chat/${item.id}`);
   };
@@ -249,7 +251,10 @@ export default function MessagesScreen() {
         {tabs.map((tab) => (
           <TouchableOpacity
             key={tab.key}
-            onPress={() => setActiveTab(tab.key)}
+            onPress={() => {
+              hapticLight();
+              setActiveTab(tab.key);
+            }}
             style={[styles.tab, activeTab === tab.key && styles.tabActive]}
           >
             <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>

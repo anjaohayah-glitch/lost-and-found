@@ -21,6 +21,7 @@ import { APP_COLORS } from '../src/constants/colors';
 import type { Post } from '../src/types/post';
 import { formatPostDate } from '../src/utils/timeAgo';
 import { useStore } from '../store/useStore';
+import { hapticLight, hapticSuccess, hapticWarning } from '../utils/haptics';
 
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -87,6 +88,8 @@ export default function PostDetailScreen() {
   const canResolve = isOwner && post.status === 'approved';
 
   const handleContactPoster = async () => {
+    hapticLight();
+
     const user = auth?.currentUser;
 
     if (!firebaseReady || !db || !user) {
@@ -138,6 +141,8 @@ export default function PostDetailScreen() {
   };
 
   const handleResolvePost = () => {
+    hapticWarning();
+
     const firestore = db;
     const user = auth?.currentUser;
 
@@ -172,6 +177,7 @@ export default function PostDetailScreen() {
                   : current,
               );
 
+              hapticSuccess();
               Alert.alert('Resolved', 'This post is now hidden from the home feed.');
             } catch (error) {
               Alert.alert(
@@ -190,7 +196,13 @@ export default function PostDetailScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity
+          onPress={() => {
+            hapticLight();
+            router.back();
+          }}
+          style={styles.backBtn}
+        >
           <Ionicons name="arrow-back" size={22} color={APP_COLORS.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Post Details</Text>

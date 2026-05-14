@@ -34,6 +34,12 @@ import { APP_COLORS } from '../../src/constants/colors';
 import type { TimestampLike } from '../../src/types/post';
 import { formatPostDate, resolvePostDate } from '../../src/utils/timeAgo';
 import { useStore } from '../../store/useStore';
+import {
+  hapticLight,
+  hapticMedium,
+  hapticSuccess,
+  hapticWarning,
+} from '../../utils/haptics';
 
 interface AppNotification {
   id: string;
@@ -145,6 +151,8 @@ export default function NotificationsScreen() {
   );
 
   const markRead = async (id: string) => {
+    hapticLight();
+
     if (!db) {
       return;
     }
@@ -155,6 +163,8 @@ export default function NotificationsScreen() {
   };
 
   const markAllRead = async () => {
+    hapticSuccess();
+
     const firestore = db;
 
     if (!firestore) {
@@ -182,6 +192,8 @@ export default function NotificationsScreen() {
   };
 
   const confirmDeleteNotification = (id: string) => {
+    hapticWarning();
+
     Alert.alert('Delete notification', 'Remove this notification?', [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -193,6 +205,8 @@ export default function NotificationsScreen() {
   };
 
   const clearReadNotifications = async () => {
+    hapticWarning();
+
     const firestore = db;
     const readNotifications = notifications.filter((notification) => notification.read);
 
@@ -219,6 +233,8 @@ export default function NotificationsScreen() {
   };
 
   const requestPushPermission = async () => {
+    hapticMedium();
+
     const current = await Notifications.getPermissionsAsync().catch(() => null);
 
     if (current?.status === 'granted') {
@@ -316,7 +332,10 @@ export default function NotificationsScreen() {
               return (
                 <TouchableOpacity
                   key={filter}
-                  onPress={() => setActiveFilter(filter)}
+                  onPress={() => {
+                    hapticLight();
+                    setActiveFilter(filter);
+                  }}
                   style={[styles.filterChip, active && styles.filterChipActive]}
                   activeOpacity={0.78}
                 >

@@ -1,9 +1,22 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { APP_COLORS } from '../../src/constants/colors';
 import { useStore } from '../../store/useStore';
+import { hapticLight } from '../../utils/haptics';
+
+function HapticTabButton({ onPress, ref: _ref, ...props }: any) {
+  return (
+    <Pressable
+      {...props}
+      onPress={(event) => {
+        hapticLight();
+        onPress?.(event);
+      }}
+    />
+  );
+}
 
 export default function TabLayout() {
   const unreadCount = useStore((state) => state.unreadCount);
@@ -17,6 +30,7 @@ export default function TabLayout() {
         tabBarInactiveTintColor: APP_COLORS.textLight,
         tabBarLabelStyle: styles.tabLabel,
         tabBarItemStyle: styles.tabItem,
+        tabBarButton: HapticTabButton,
         tabBarStyle: {
           backgroundColor: APP_COLORS.surface,
           borderTopColor: APP_COLORS.border,

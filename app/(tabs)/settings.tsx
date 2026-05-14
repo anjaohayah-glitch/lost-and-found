@@ -27,6 +27,7 @@ import {
 } from '../../services/firebase';
 import { APP_COLORS } from '../../src/constants/colors';
 import { useStore } from '../../store/useStore';
+import { hapticLight, hapticMedium, hapticSuccess, hapticWarning } from '../../utils/haptics';
 
 const PROGRAMS = [
   'BIT Computer',
@@ -49,7 +50,14 @@ type SettingsRowProps = {
 
 function SettingsRow({ destructive, icon, label, onPress, value }: SettingsRowProps) {
   return (
-    <TouchableOpacity onPress={onPress} style={styles.row} activeOpacity={0.75}>
+    <TouchableOpacity
+      onPress={() => {
+        hapticLight();
+        onPress();
+      }}
+      style={styles.row}
+      activeOpacity={0.75}
+    >
       <View
         style={[
           styles.rowIcon,
@@ -109,6 +117,8 @@ export default function SettingsScreen() {
   };
 
   const handleSaveProfile = async () => {
+    hapticMedium();
+
     const currentUser = auth?.currentUser ?? null;
     const name = profileForm.name.trim();
 
@@ -145,6 +155,7 @@ export default function SettingsScreen() {
       });
 
       setEditingProfile(false);
+      hapticSuccess();
       Alert.alert('Saved', 'Your profile has been updated.');
     } catch (error) {
       const message =
@@ -156,6 +167,8 @@ export default function SettingsScreen() {
   };
 
   const handleChangePassword = async () => {
+    hapticMedium();
+
     const email = profile?.email ?? auth?.currentUser?.email ?? '';
 
     if (!firebaseReady || !auth) {
@@ -179,6 +192,8 @@ export default function SettingsScreen() {
   };
 
   const handleLogout = () => {
+    hapticWarning();
+
     if (!signedIn) {
       router.push('/login');
       return;
@@ -332,7 +347,10 @@ export default function SettingsScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Edit profile</Text>
               <TouchableOpacity
-                onPress={() => setEditingProfile(false)}
+                onPress={() => {
+                  hapticLight();
+                  setEditingProfile(false);
+                }}
                 style={styles.modalClose}
               >
                 <Ionicons color={APP_COLORS.textMuted} name="close" size={20} />
@@ -356,7 +374,10 @@ export default function SettingsScreen() {
                 return (
                   <TouchableOpacity
                     key={program}
-                    onPress={() => updateProfileField('program', program)}
+                    onPress={() => {
+                      hapticLight();
+                      updateProfileField('program', program);
+                    }}
                     style={[styles.chip, selected && styles.chipSelected]}
                   >
                     <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
@@ -375,7 +396,10 @@ export default function SettingsScreen() {
                 return (
                   <TouchableOpacity
                     key={yearLevel}
-                    onPress={() => updateProfileField('yearLevel', yearLevel)}
+                    onPress={() => {
+                      hapticLight();
+                      updateProfileField('yearLevel', yearLevel);
+                    }}
                     style={[styles.chip, selected && styles.chipSelected]}
                   >
                     <Text style={[styles.chipText, selected && styles.chipTextSelected]}>

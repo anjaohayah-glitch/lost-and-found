@@ -30,6 +30,7 @@ import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
 
 import { auth, db, firebaseReady, storage } from '../../services/firebase';
 import { APP_COLORS } from '../../src/constants/colors';
+import { hapticLight, hapticMedium, hapticSuccess, hapticWarning } from '../../utils/haptics';
 
 interface Message {
   id: string;
@@ -182,6 +183,8 @@ export default function ChatScreen() {
   }, [messages]);
 
   const handleSend = async () => {
+    hapticMedium();
+
     const trimmed = text.trim();
     if (!trimmed || sending) return;
 
@@ -206,6 +209,7 @@ export default function ChatScreen() {
           createdAt: new Date(),
         },
       ]);
+      hapticSuccess();
       setSending(false);
       return;
     }
@@ -225,7 +229,9 @@ export default function ChatScreen() {
       }).catch((error) => {
         console.warn('conversation preview update failed:', error);
       });
+      hapticSuccess();
     } catch (error) {
+      hapticWarning();
       setText(trimmed);
       console.error('send message error:', error);
       Alert.alert(
@@ -240,6 +246,8 @@ export default function ChatScreen() {
   };
 
   const handleImagePick = async () => {
+    hapticLight();
+
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 0.7,
@@ -257,6 +265,7 @@ export default function ChatScreen() {
           createdAt: new Date(),
         },
       ]);
+      hapticSuccess();
       return;
     }
 
@@ -292,10 +301,12 @@ export default function ChatScreen() {
           }).catch((error) => {
             console.warn('conversation image preview update failed:', error);
           });
+          hapticSuccess();
           setUploading(false);
         },
       );
     } catch (error) {
+      hapticWarning();
       setUploading(false);
       console.error('send image message error:', error);
       Alert.alert(
@@ -374,7 +385,13 @@ export default function ChatScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity
+          onPress={() => {
+            hapticLight();
+            router.back();
+          }}
+          style={styles.backBtn}
+        >
           <Ionicons name="arrow-back" size={22} color="#fff" />
         </TouchableOpacity>
         <View style={[styles.headerAvatar, { backgroundColor: avatarColor.bg }]}>
@@ -398,7 +415,12 @@ export default function ChatScreen() {
       {meta?.postTitle && (
         <TouchableOpacity
           style={styles.postBanner}
-          onPress={() => meta.postId && router.push(`/post-detail?id=${meta.postId}`)}
+          onPress={() => {
+            hapticLight();
+            if (meta.postId) {
+              router.push(`/post-detail?id=${meta.postId}`);
+            }
+          }}
           activeOpacity={0.8}
         >
           <View style={[

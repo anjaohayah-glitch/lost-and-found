@@ -26,6 +26,7 @@ import {
   firebaseReady,
 } from '../services/firebase';
 import { APP_COLORS } from '../src/constants/colors';
+import { hapticLight, hapticMedium, hapticSuccess, hapticWarning } from '../utils/haptics';
 
 const PROGRAMS = [
   'BIT Computer',
@@ -55,6 +56,8 @@ export default function RegisterScreen() {
   };
 
   const handleRegister = async () => {
+    hapticMedium();
+
     if (!firebaseReady || !auth || !db) {
       Alert.alert('Setup Required', FIREBASE_SETUP_MESSAGE);
       return;
@@ -62,6 +65,7 @@ export default function RegisterScreen() {
 
     const email = form.email.trim().toLowerCase();
     if (!form.name.trim() || !email || !form.password) {
+      hapticWarning();
       Alert.alert(
         'Missing Fields',
         'Please fill in your name, email, and password.',
@@ -70,6 +74,7 @@ export default function RegisterScreen() {
     }
 
     if (!form.program || !form.yearLevel) {
+      hapticWarning();
       Alert.alert(
         'Missing Fields',
         'Please choose your program and year level.',
@@ -78,6 +83,7 @@ export default function RegisterScreen() {
     }
 
     if (!email.includes('@')) {
+      hapticWarning();
       Alert.alert('Invalid Email', 'Please use a valid email address.');
       return;
     }
@@ -108,6 +114,7 @@ export default function RegisterScreen() {
 
       await signOut(auth);
 
+      hapticSuccess();
       Alert.alert('Success', 'Account created. Please sign in.', [
         {
           text: 'OK',
@@ -204,7 +211,10 @@ export default function RegisterScreen() {
             return (
               <TouchableOpacity
                 key={program}
-                onPress={() => updateField('program', program)}
+                onPress={() => {
+                  hapticLight();
+                  updateField('program', program);
+                }}
                 style={[
                   styles.chip,
                   selected ? styles.chipSelected : null,
@@ -228,7 +238,10 @@ export default function RegisterScreen() {
             return (
               <TouchableOpacity
                 key={yearLevel}
-                onPress={() => updateField('yearLevel', yearLevel)}
+                onPress={() => {
+                  hapticLight();
+                  updateField('yearLevel', yearLevel);
+                }}
                 style={[
                   styles.chip,
                   selected ? styles.chipSelected : null,
@@ -254,7 +267,12 @@ export default function RegisterScreen() {
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => router.replace('/login')}>
+        <TouchableOpacity
+          onPress={() => {
+            hapticLight();
+            router.replace('/login');
+          }}
+        >
           <Text style={styles.link}>Already have an account? Sign In</Text>
         </TouchableOpacity>
       </ScrollView>

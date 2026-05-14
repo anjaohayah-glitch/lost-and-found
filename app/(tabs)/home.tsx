@@ -24,6 +24,7 @@ import type { Post, PostType } from '../../src/types/post';
 import { buildMockPosts } from '../../src/utils/helpers';
 import { resolvePostDate } from '../../src/utils/timeAgo';
 import { useStore } from '../../store/useStore';
+import { hapticLight } from '../../utils/haptics';
 
 const CATEGORIES = [{ label: 'All', value: 'all', icon: 'apps-outline' as const }, ...CATEGORY_OPTIONS];
 
@@ -104,9 +105,14 @@ export default function HomeScreen() {
     setTimeout(() => setRefreshing(false), 800);
   }, [filter]);
 
-  const handleAvatarPress = () => router.push('/(tabs)/settings');
+  const handleAvatarPress = () => {
+    hapticLight();
+    router.push('/(tabs)/settings');
+  };
 
   const handleCreate = (type: PostType) => {
+    hapticLight();
+
     if (firebaseReady && !auth?.currentUser) {
       router.push('/login');
       return;
@@ -117,7 +123,13 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => setDrawerOpen(true)} style={styles.headerBtn}>
+        <TouchableOpacity
+          onPress={() => {
+            hapticLight();
+            setDrawerOpen(true);
+          }}
+          style={styles.headerBtn}
+        >
           <Ionicons name="menu-outline" size={22} color={APP_COLORS.surface} />
         </TouchableOpacity>
 
@@ -215,7 +227,10 @@ export default function HomeScreen() {
                   return (
                     <TouchableOpacity
                       key={type}
-                      onPress={() => setFilter(type)}
+                      onPress={() => {
+                        hapticLight();
+                        setFilter(type);
+                      }}
                       style={[
                         styles.toggleBtn,
                         isActive && (type === 'lost' ? styles.toggleLost : styles.toggleFound),
@@ -249,7 +264,10 @@ export default function HomeScreen() {
                 return (
                   <TouchableOpacity
                     key={cat.value}
-                    onPress={() => setCategory(cat.value)}
+                    onPress={() => {
+                      hapticLight();
+                      setCategory(cat.value);
+                    }}
                     style={[styles.chip, isActive && styles.chipActive]}
                   >
                     <Ionicons

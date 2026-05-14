@@ -8,6 +8,7 @@ import { getCategoryLabel } from '../src/constants/categories';
 import { APP_COLORS } from '../src/constants/colors';
 import type { Post } from '../src/types/post';
 import timeAgo from '../src/utils/timeAgo';
+import { hapticLight } from '../utils/haptics';
 
 interface PostCardProps {
   post: Post;
@@ -25,6 +26,8 @@ export default function PostCard({ post, onPress, disableNav }: PostCardProps) {
   }, [post.id, post.imageUrl]);
 
   const handlePress = () => {
+    hapticLight();
+
     if (onPress) {
       onPress();
       return;

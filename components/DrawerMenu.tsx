@@ -13,6 +13,7 @@ import { type Href, useRouter } from 'expo-router';
 import { APP_COLORS } from '../src/constants/colors';
 import { auth } from '../services/firebase';
 import { useStore } from '../store/useStore';
+import { hapticLight } from '../utils/haptics';
 
 interface DrawerMenuProps {
   open: boolean;
@@ -41,6 +42,7 @@ export default function DrawerMenu({ open, onClose }: DrawerMenuProps) {
   }, [open, overlayOpacity, translateX]);
 
   const navigate = (path: Href) => {
+    hapticLight();
     onClose();
     router.push(path);
   };

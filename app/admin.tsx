@@ -1,4 +1,4 @@
-import { type ComponentProps, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { signOut } from '@firebase/auth';
+import { signOut } from 'firebase/auth';
 import { Ionicons } from '@expo/vector-icons';
 import {
   addDoc,
@@ -37,6 +37,7 @@ import type { Post } from '../src/types/post';
 import { resolvePostDate } from '../src/utils/timeAgo';
 import { useStore } from '../store/useStore';
 import { sendPushToUser } from '../utils/sendPush';
+import { hapticLight, hapticSuccess, hapticWarning } from '../utils/haptics';
 
 type AdminPostFilter = 'pending' | 'approved' | 'resolved';
 
@@ -132,6 +133,8 @@ export default function AdminScreen() {
     error instanceof Error ? error.message : 'Please try again.';
 
   const approvePost = async (post: Post) => {
+    hapticSuccess();
+
     if (!db) {
       return;
     }
@@ -159,6 +162,8 @@ export default function AdminScreen() {
   };
 
   const rejectPost = (post: Post) => {
+    hapticWarning();
+
     const firestore = db;
 
     if (!firestore) {
@@ -195,6 +200,8 @@ export default function AdminScreen() {
   };
 
   const resolvePost = (post: Post) => {
+    hapticWarning();
+
     const firestore = db;
 
     if (!firestore) {
@@ -293,7 +300,13 @@ export default function AdminScreen() {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => setSelectedPost(null)} style={styles.backBtn}>
+          <TouchableOpacity
+            onPress={() => {
+              hapticLight();
+              setSelectedPost(null);
+            }}
+            style={styles.backBtn}
+          >
             <Ionicons name="arrow-back" size={18} color="#fff" />
             <Text style={styles.backText}>Back</Text>
           </TouchableOpacity>
@@ -407,7 +420,12 @@ export default function AdminScreen() {
             {dashboard.pending} pending approval
           </Text>
         </View>
-        <TouchableOpacity onPress={() => void handleLogout()}>
+        <TouchableOpacity
+          onPress={() => {
+            hapticWarning();
+            void handleLogout();
+          }}
+        >
           <Text style={styles.logout}>Sign Out</Text>
         </TouchableOpacity>
       </View>
@@ -593,7 +611,7 @@ export default function AdminScreen() {
   );
 }
 
-function DetailMeta({ icon, value }: { icon: ComponentProps<typeof Ionicons>['name']; value: string }) {
+function DetailMeta({ icon, value }: { icon: string; value: string }) {
   return (
     <View style={styles.detailMetaRow}>
       <Ionicons name={icon} size={15} color={APP_COLORS.textMuted} />
@@ -609,7 +627,7 @@ function StatCard({
   color,
   background,
 }: {
-  icon: ComponentProps<typeof Ionicons>['name'];
+  icon: string;
   label: string;
   value: number;
   color: string;
@@ -637,7 +655,10 @@ function FilterTab({
 }) {
   return (
     <TouchableOpacity
-      onPress={onPress}
+      onPress={() => {
+        hapticLight();
+        onPress();
+      }}
       style={[styles.filterTab, active ? styles.filterTabActive : null]}
     >
       <Text style={[styles.filterTabText, active ? styles.filterTabTextActive : null]}>
@@ -653,13 +674,19 @@ function ActionButton({
   onPress,
   style,
 }: {
-  icon: ComponentProps<typeof Ionicons>['name'];
+  icon: string;
   label: string;
   onPress: () => void;
   style: object;
 }) {
   return (
-    <TouchableOpacity onPress={onPress} style={[styles.actionButton, style]}>
+    <TouchableOpacity
+      onPress={() => {
+        hapticLight();
+        onPress();
+      }}
+      style={[styles.actionButton, style]}
+    >
       <Ionicons name={icon} size={16} color={APP_COLORS.surface} />
       <Text style={styles.actionText}>{label}</Text>
     </TouchableOpacity>

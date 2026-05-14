@@ -19,6 +19,7 @@ import {
   firebaseReady,
 } from '../services/firebase';
 import { APP_COLORS } from '../src/constants/colors';
+import { hapticLight, hapticMedium, hapticWarning } from '../utils/haptics';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -27,6 +28,8 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
+    hapticMedium();
+
     if (!firebaseReady || !auth) {
       Alert.alert('Demo Mode', FIREBASE_SETUP_MESSAGE);
       router.replace('/(tabs)/home');
@@ -34,6 +37,7 @@ export default function LoginScreen() {
     }
 
     if (!email.trim() || !password) {
+      hapticWarning();
       Alert.alert(
         'Missing Fields',
         'Please enter your email and password.',
@@ -95,7 +99,12 @@ export default function LoginScreen() {
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => router.push('/register')}>
+        <TouchableOpacity
+          onPress={() => {
+            hapticLight();
+            router.push('/register');
+          }}
+        >
           <Text style={styles.link}>Do not have an account? Register</Text>
         </TouchableOpacity>
 
