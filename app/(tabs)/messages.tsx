@@ -379,14 +379,16 @@ export default function MessagesScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F7F7F8' },
+  safe: { flex: 1, backgroundColor: APP_COLORS.background },
 
   /* ── Header ── */
   header: {
-    backgroundColor: APP_COLORS.primary,
+    backgroundColor: APP_COLORS.primaryDark,
     paddingHorizontal: 16,
     paddingTop: 14,
     paddingBottom: 16,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
   headerRow: {
     flexDirection: 'row',
@@ -417,7 +419,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 20,
+    borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
@@ -458,11 +460,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: APP_COLORS.surface,
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: APP_COLORS.border,
     padding: 13,
-    marginBottom: 10,
+    marginBottom: 12,
+    shadowColor: APP_COLORS.shadow,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 1,
+    shadowRadius: 14,
+    elevation: 2,
   },
   cardUnread: {
     borderLeftWidth: 4,

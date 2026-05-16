@@ -35,9 +35,14 @@ export default function TabLayout() {
           backgroundColor: APP_COLORS.surface,
           borderTopColor: APP_COLORS.border,
           borderTopWidth: 1,
-          height: 68,
+          height: 72,
           paddingBottom: 10,
           paddingTop: 8,
+          shadowColor: APP_COLORS.shadow,
+          shadowOffset: { width: 0, height: -6 },
+          shadowOpacity: 1,
+          shadowRadius: 16,
+          elevation: 12,
         },
       }}
     >
@@ -148,12 +153,16 @@ const styles = StyleSheet.create({
   },
   rewardsIcon: {
     alignItems: 'center',
-    borderRadius: 18,
+    borderRadius: 8,
     height: 34,
     justifyContent: 'center',
     width: 34,
   },
   rewardsIconActive: {
     backgroundColor: APP_COLORS.primary,
+    shadowColor: APP_COLORS.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 10,
   },
 });

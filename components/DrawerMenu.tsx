@@ -9,11 +9,13 @@ import {
   View,
 } from 'react-native';
 import { type Href, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 import { APP_COLORS } from '../src/constants/colors';
 import { auth } from '../services/firebase';
 import { useStore } from '../store/useStore';
 import { hapticLight } from '../utils/haptics';
+import FoxLogo from './FoxLogo';
 
 interface DrawerMenuProps {
   open: boolean;
@@ -62,7 +64,12 @@ export default function DrawerMenu({ open, onClose }: DrawerMenuProps) {
         <Animated.View
           style={[styles.panel, { transform: [{ translateX }] }]}
         >
-          <Text style={styles.title}>FoxFindz</Text>
+          <View style={styles.brandRow}>
+            <View style={styles.brandMark}>
+              <FoxLogo size={34} />
+            </View>
+            <Text style={styles.title}>FoxFindz</Text>
+          </View>
           <Text style={styles.subtitle}>
             {profile?.name ?? auth?.currentUser?.email ?? 'Campus lost and found'}
           </Text>
@@ -71,30 +78,35 @@ export default function DrawerMenu({ open, onClose }: DrawerMenuProps) {
             onPress={() => navigate('/(tabs)/home')}
             style={styles.item}
           >
+            <Ionicons name="home-outline" size={17} color={APP_COLORS.textMuted} />
             <Text style={styles.itemText}>Home</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => navigate('/lost-form')}
             style={styles.item}
           >
+            <Ionicons name="search-outline" size={17} color={APP_COLORS.textMuted} />
             <Text style={styles.itemText}>Report Lost Item</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => navigate('/found-form')}
             style={styles.item}
           >
+            <Ionicons name="hand-left-outline" size={17} color={APP_COLORS.textMuted} />
             <Text style={styles.itemText}>Report Found Item</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => navigate('/(tabs)/notifications')}
             style={styles.item}
           >
+            <Ionicons name="notifications-outline" size={17} color={APP_COLORS.textMuted} />
             <Text style={styles.itemText}>Notifications</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => navigate('/(tabs)/settings')}
             style={styles.item}
           >
+            <Ionicons name="settings-outline" size={17} color={APP_COLORS.textMuted} />
             <Text style={styles.itemText}>Settings</Text>
           </TouchableOpacity>
           {profile?.role === 'admin' ? (
@@ -102,6 +114,7 @@ export default function DrawerMenu({ open, onClose }: DrawerMenuProps) {
               onPress={() => navigate('/admin')}
               style={styles.item}
             >
+              <Ionicons name="speedometer-outline" size={17} color={APP_COLORS.textMuted} />
               <Text style={styles.itemText}>Admin Dashboard</Text>
             </TouchableOpacity>
           ) : null}
@@ -121,13 +134,13 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(18, 10, 4, 0.34)',
+    backgroundColor: 'rgba(22, 26, 29, 0.28)',
   },
   panel: {
     width: 290,
     maxWidth: '82%',
     height: '100%',
-    backgroundColor: APP_COLORS.background,
+    backgroundColor: APP_COLORS.surface,
     paddingTop: 64,
     paddingHorizontal: 18,
     paddingBottom: 24,
@@ -139,11 +152,26 @@ const styles = StyleSheet.create({
     shadowRadius: 18,
     elevation: 8,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: APP_COLORS.primary,
+  brandRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
     marginBottom: 6,
+  },
+  brandMark: {
+    alignItems: 'center',
+    backgroundColor: APP_COLORS.surfaceAlt,
+    borderColor: APP_COLORS.border,
+    borderRadius: 12,
+    borderWidth: 1,
+    height: 44,
+    justifyContent: 'center',
+    width: 44,
+  },
+  title: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: APP_COLORS.text,
   },
   subtitle: {
     color: APP_COLORS.textMuted,
@@ -152,8 +180,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   item: {
-    backgroundColor: APP_COLORS.surface,
+    backgroundColor: APP_COLORS.background,
+    alignItems: 'center',
     borderRadius: 14,
+    flexDirection: 'row',
+    gap: 10,
     paddingHorizontal: 14,
     paddingVertical: 14,
     borderWidth: 1,

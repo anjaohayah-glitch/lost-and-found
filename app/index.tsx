@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
     fontSize: 42,
     fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: -1,
+    letterSpacing: 0,
     textAlign: 'center',
   },
   subtitle: {

@@ -66,9 +66,12 @@ export default function PostDetailScreen() {
       <SafeAreaView style={styles.safe}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={22} color={APP_COLORS.text} />
+            <Ionicons name="arrow-back" size={22} color={APP_COLORS.surface} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Post Not Found</Text>
+          <View style={styles.headerCenter}>
+            <Text style={styles.headerKicker}>Report Review</Text>
+            <Text style={styles.headerTitle}>Post Not Found</Text>
+          </View>
           <View style={styles.headerSpacer} />
         </View>
         <View style={styles.center}>
@@ -86,6 +89,23 @@ export default function PostDetailScreen() {
   const isOwner = Boolean(auth?.currentUser?.uid && post.userId === auth.currentUser.uid);
   const isResolved = post.status === 'resolved';
   const canResolve = isOwner && post.status === 'approved';
+  const statusSteps = [
+    {
+      label: 'Submitted',
+      done: true,
+      icon: 'document-text-outline' as const,
+    },
+    {
+      label: post.status === 'pending' ? 'For review' : 'Approved',
+      done: post.status !== 'pending',
+      icon: 'shield-checkmark-outline' as const,
+    },
+    {
+      label: isResolved ? 'Resolved' : 'Awaiting return',
+      done: isResolved,
+      icon: 'checkmark-done-outline' as const,
+    },
+  ];
 
   const handleContactPoster = async () => {
     hapticLight();
@@ -203,26 +223,41 @@ export default function PostDetailScreen() {
           }}
           style={styles.backBtn}
         >
-          <Ionicons name="arrow-back" size={22} color={APP_COLORS.text} />
+          <Ionicons name="arrow-back" size={22} color={APP_COLORS.surface} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Post Details</Text>
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerKicker}>Report Review</Text>
+          <Text style={styles.headerTitle}>Post Details</Text>
+        </View>
         <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        {post.imageUrl && !imageFailed ? (
-          <Image
-            source={{ uri: post.imageUrl }}
-            style={styles.heroImage}
-            resizeMode="cover"
-            onError={() => setImageFailed(true)}
-          />
-        ) : (
-          <View style={[styles.heroFallback, { backgroundColor: accentBackground }]}>
-            <CategoryIcon category={post.category} size={72} color={accentColor} />
-            <Text style={styles.heroFallbackText}>No photo attached</Text>
+        <View style={styles.heroWrap}>
+          {post.imageUrl && !imageFailed ? (
+            <Image
+              source={{ uri: post.imageUrl }}
+              style={styles.heroImage}
+              resizeMode="cover"
+              onError={() => setImageFailed(true)}
+            />
+          ) : (
+            <View style={[styles.heroFallback, { backgroundColor: accentBackground }]}>
+              <CategoryIcon category={post.category} size={72} color={accentColor} />
+              <Text style={styles.heroFallbackText}>No photo attached</Text>
+            </View>
+          )}
+          <View style={[styles.heroStatus, { backgroundColor: accentColor }]}>
+            <Ionicons
+              name={isLost ? 'search-outline' : 'hand-left-outline'}
+              size={15}
+              color={APP_COLORS.surface}
+            />
+            <Text style={styles.heroStatusText}>
+              {isResolved ? 'Resolved report' : isLost ? 'Lost item report' : 'Found item report'}
+            </Text>
           </View>
-        )}
+        </View>
 
         <View style={styles.body}>
           <View style={styles.badgeRow}>
@@ -260,6 +295,29 @@ export default function PostDetailScreen() {
 
           <Text style={styles.title}>{post.title}</Text>
 
+          <View style={styles.timeline}>
+            {statusSteps.map((step, index) => (
+              <View key={step.label} style={styles.timelineStep}>
+                <View
+                  style={[
+                    styles.timelineIcon,
+                    step.done ? styles.timelineIconDone : styles.timelineIconPending,
+                  ]}
+                >
+                  <Ionicons
+                    name={step.icon}
+                    size={15}
+                    color={step.done ? APP_COLORS.surface : APP_COLORS.textLight}
+                  />
+                </View>
+                <Text style={[styles.timelineLabel, step.done && styles.timelineLabelDone]}>
+                  {step.label}
+                </Text>
+                {index < statusSteps.length - 1 ? <View style={styles.timelineLine} /> : null}
+              </View>
+            ))}
+          </View>
+
           <View style={styles.metaGrid}>
             <View style={styles.metaCard}>
               <Text style={styles.metaLabel}>Location</Text>
@@ -285,6 +343,20 @@ export default function PostDetailScreen() {
             <Text style={styles.sectionTitle}>Description</Text>
             <Text style={styles.sectionText}>{post.description}</Text>
           </View>
+
+          {!isOwner && !isResolved ? (
+            <View style={styles.verificationCard}>
+              <View style={styles.verificationIcon}>
+                <Ionicons name="lock-closed-outline" size={18} color={APP_COLORS.primaryDark} />
+              </View>
+              <View style={styles.verificationCopy}>
+                <Text style={styles.verificationTitle}>Claim verification</Text>
+                <Text style={styles.verificationText}>
+                  Contact the poster and describe a unique detail before arranging return.
+                </Text>
+              </View>
+            </View>
+          ) : null}
 
           {canResolve ? (
             <TouchableOpacity
@@ -321,7 +393,9 @@ export default function PostDetailScreen() {
                   ? 'Post Resolved'
                   : isOwner
                     ? 'This Is Your Post'
-                    : 'Contact Poster'}
+                    : isLost
+                      ? 'I Found This Item'
+                      : 'This Might Be Mine'}
               </Text>
             </TouchableOpacity>
           )}
@@ -346,21 +420,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: APP_COLORS.border,
-    backgroundColor: APP_COLORS.background,
+    paddingTop: 12,
+    paddingBottom: 16,
+    backgroundColor: APP_COLORS.primaryDark,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
   backBtn: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
     alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderColor: 'rgba(255,255,255,0.18)',
+    borderRadius: 12,
+    borderWidth: 1,
     justifyContent: 'center',
   },
+  headerCenter: {
+    alignItems: 'center',
+  },
+  headerKicker: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 10,
+    fontWeight: '900',
+    marginBottom: 2,
+    textTransform: 'uppercase',
+  },
   headerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: APP_COLORS.text,
+    fontSize: 17,
+    fontWeight: '900',
+    color: APP_COLORS.surface,
   },
   headerSpacer: {
     width: 36,
@@ -368,9 +457,21 @@ const styles = StyleSheet.create({
   content: {
     paddingBottom: 24,
   },
+  heroWrap: {
+    margin: 16,
+    marginBottom: 0,
+    borderRadius: 24,
+    overflow: 'hidden',
+    backgroundColor: APP_COLORS.surface,
+    shadowColor: APP_COLORS.shadow,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 1,
+    shadowRadius: 22,
+    elevation: 4,
+  },
   heroImage: {
     width: '100%',
-    height: 300,
+    height: 280,
     backgroundColor: APP_COLORS.surfaceAlt,
   },
   heroFallback: {
@@ -383,6 +484,22 @@ const styles = StyleSheet.create({
   heroFallbackText: {
     fontSize: 14,
     color: APP_COLORS.textMuted,
+  },
+  heroStatus: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 7,
+    left: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    position: 'absolute',
+    top: 14,
+    borderRadius: 999,
+  },
+  heroStatusText: {
+    color: APP_COLORS.surface,
+    fontSize: 12,
+    fontWeight: '900',
   },
   body: {
     padding: 16,
@@ -442,10 +559,58 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 26,
-    fontWeight: '800',
+    fontWeight: '900',
     color: APP_COLORS.text,
     lineHeight: 32,
     marginBottom: 16,
+  },
+  timeline: {
+    backgroundColor: APP_COLORS.surface,
+    borderColor: APP_COLORS.border,
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: 'row',
+    marginBottom: 16,
+    padding: 12,
+  },
+  timelineStep: {
+    alignItems: 'center',
+    flex: 1,
+    minWidth: 0,
+  },
+  timelineIcon: {
+    alignItems: 'center',
+    borderRadius: 14,
+    height: 34,
+    justifyContent: 'center',
+    marginBottom: 7,
+    width: 34,
+  },
+  timelineIconDone: {
+    backgroundColor: APP_COLORS.primary,
+  },
+  timelineIconPending: {
+    backgroundColor: APP_COLORS.background,
+    borderColor: APP_COLORS.border,
+    borderWidth: 1,
+  },
+  timelineLabel: {
+    color: APP_COLORS.textLight,
+    fontSize: 11,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  timelineLabelDone: {
+    color: APP_COLORS.text,
+  },
+  timelineLine: {
+    backgroundColor: APP_COLORS.border,
+    height: 2,
+    position: 'absolute',
+    right: '-50%',
+    top: 16,
+    width: '100%',
+    zIndex: -1,
   },
   metaGrid: {
     gap: 8,
@@ -455,7 +620,7 @@ const styles = StyleSheet.create({
     backgroundColor: APP_COLORS.surface,
     borderWidth: 1,
     borderColor: APP_COLORS.border,
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 12,
   },
   metaLabel: {
@@ -479,7 +644,7 @@ const styles = StyleSheet.create({
     backgroundColor: APP_COLORS.surface,
     borderWidth: 1,
     borderColor: APP_COLORS.border,
-    borderRadius: 14,
+    borderRadius: 18,
     padding: 14,
     marginBottom: 14,
   },
@@ -495,6 +660,39 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: APP_COLORS.textMuted,
     lineHeight: 23,
+  },
+  verificationCard: {
+    alignItems: 'center',
+    backgroundColor: APP_COLORS.surfaceAlt,
+    borderColor: APP_COLORS.primaryLight,
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 14,
+    padding: 14,
+  },
+  verificationIcon: {
+    alignItems: 'center',
+    backgroundColor: APP_COLORS.surface,
+    borderRadius: 14,
+    height: 42,
+    justifyContent: 'center',
+    width: 42,
+  },
+  verificationCopy: {
+    flex: 1,
+  },
+  verificationTitle: {
+    color: APP_COLORS.text,
+    fontSize: 14,
+    fontWeight: '900',
+    marginBottom: 3,
+  },
+  verificationText: {
+    color: APP_COLORS.textMuted,
+    fontSize: 12,
+    lineHeight: 18,
   },
   ctaButton: {
     flexDirection: 'row',

@@ -2,7 +2,9 @@ import { useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import {
   createUserWithEmailAndPassword,
   signOut,
@@ -19,6 +22,7 @@ import {
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 
 import OfflineBanner from '../components/OfflineBanner';
+import FoxLogo from '../components/FoxLogo';
 import {
   FIREBASE_SETUP_MESSAGE,
   auth,
@@ -49,6 +53,7 @@ export default function RegisterScreen() {
     yearLevel: '',
   });
   const [showPasswordTip, setShowPasswordTip] = useState(false);
+  const [dropdown, setDropdown] = useState<null | 'program' | 'yearLevel'>(null);
   const [loading, setLoading] = useState(false);
 
   const updateField = (field: keyof typeof form, value: string) => {
@@ -162,110 +167,83 @@ export default function RegisterScreen() {
           <OfflineBanner message={FIREBASE_SETUP_MESSAGE} tone="info" />
         ) : null}
 
-        <Text style={styles.title}>Create Account</Text>
-        <Text style={styles.subtitle}>Join FoxFindz</Text>
+        <View style={styles.hero}>
+          <View style={styles.heroBadge}>
+            <FoxLogo size={70} />
+          </View>
+          <Text style={styles.title}>Create Account</Text>
+          <Text style={styles.subtitle}>Set up your campus profile for organized item reports.</Text>
+        </View>
 
-        <TextInput
-          onChangeText={(value) => updateField('name', value)}
-          placeholder="Full Name"
-          placeholderTextColor={APP_COLORS.placeholder}
-          style={styles.input}
-          value={form.name}
-        />
-        <TextInput
-          autoCapitalize="none"
-          keyboardType="email-address"
-          onChangeText={(value) => updateField('email', value)}
-          placeholder="University Email"
-          placeholderTextColor={APP_COLORS.placeholder}
-          style={styles.input}
-          value={form.email}
-        />
-
-        <View>
+        <View style={styles.formPanel}>
           <TextInput
-            onBlur={() => setShowPasswordTip(false)}
-            onChangeText={(value) => updateField('password', value)}
-            onFocus={() => setShowPasswordTip(true)}
-            placeholder="Password"
+            onChangeText={(value) => updateField('name', value)}
+            placeholder="Full Name"
             placeholderTextColor={APP_COLORS.placeholder}
-            secureTextEntry
             style={styles.input}
-            value={form.password}
+            value={form.name}
           />
-          {showPasswordTip ? (
-            <View style={styles.tipBubble}>
-              <Text style={styles.tipText}>
-                Tip: you can use your student ID number if that matches your
-                campus policy.
-              </Text>
-            </View>
-          ) : null}
-        </View>
+          <TextInput
+            autoCapitalize="none"
+            keyboardType="email-address"
+            onChangeText={(value) => updateField('email', value)}
+            placeholder="University Email"
+            placeholderTextColor={APP_COLORS.placeholder}
+            style={styles.input}
+            value={form.email}
+          />
 
-        <Text style={styles.label}>Program</Text>
-        <View style={styles.chipRow}>
-          {PROGRAMS.map((program) => {
-            const selected = form.program === program;
-
-            return (
-              <TouchableOpacity
-                key={program}
-                onPress={() => {
-                  hapticLight();
-                  updateField('program', program);
-                }}
-                style={[
-                  styles.chip,
-                  selected ? styles.chipSelected : null,
-                ]}
-              >
-                <Text
-                  style={selected ? styles.chipTextSelected : styles.chipText}
-                >
-                  {program}
+          <View>
+            <TextInput
+              onBlur={() => setShowPasswordTip(false)}
+              onChangeText={(value) => updateField('password', value)}
+              onFocus={() => setShowPasswordTip(true)}
+              placeholder="Password"
+              placeholderTextColor={APP_COLORS.placeholder}
+              secureTextEntry
+              style={styles.input}
+              value={form.password}
+            />
+            {showPasswordTip ? (
+              <View style={styles.tipBubble}>
+                <Text style={styles.tipText}>
+                  Tip: you can use your student ID number if that matches your
+                  campus policy.
                 </Text>
-              </TouchableOpacity>
-            );
-          })}
+              </View>
+            ) : null}
+          </View>
+
+          <DropdownField
+            label="Program"
+            placeholder="Select program"
+            value={form.program}
+            onPress={() => {
+              hapticLight();
+              setDropdown('program');
+            }}
+          />
+
+          <DropdownField
+            label="Year Level"
+            placeholder="Select year level"
+            value={form.yearLevel}
+            onPress={() => {
+              hapticLight();
+              setDropdown('yearLevel');
+            }}
+          />
+
+          <TouchableOpacity
+            disabled={loading}
+            onPress={() => void handleRegister()}
+            style={[styles.button, loading ? styles.buttonDisabled : null]}
+          >
+            <Text style={styles.buttonText}>
+              {loading ? 'Creating...' : 'Create Account'}
+            </Text>
+          </TouchableOpacity>
         </View>
-
-        <Text style={styles.label}>Year Level</Text>
-        <View style={styles.chipRow}>
-          {YEAR_LEVELS.map((yearLevel) => {
-            const selected = form.yearLevel === yearLevel;
-
-            return (
-              <TouchableOpacity
-                key={yearLevel}
-                onPress={() => {
-                  hapticLight();
-                  updateField('yearLevel', yearLevel);
-                }}
-                style={[
-                  styles.chip,
-                  selected ? styles.chipSelected : null,
-                ]}
-              >
-                <Text
-                  style={selected ? styles.chipTextSelected : styles.chipText}
-                >
-                  {yearLevel}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        <TouchableOpacity
-          disabled={loading}
-          onPress={() => void handleRegister()}
-          style={[styles.button, loading ? styles.buttonDisabled : null]}
-        >
-          <Text style={styles.buttonText}>
-            {loading ? 'Creating...' : 'Create Account'}
-          </Text>
-        </TouchableOpacity>
 
         <TouchableOpacity
           onPress={() => {
@@ -276,7 +254,76 @@ export default function RegisterScreen() {
           <Text style={styles.link}>Already have an account? Sign In</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <Modal
+        animationType="fade"
+        onRequestClose={() => setDropdown(null)}
+        transparent
+        visible={dropdown != null}
+      >
+        <Pressable style={styles.dropdownBackdrop} onPress={() => setDropdown(null)}>
+          <Pressable style={styles.dropdownCard}>
+            <Text style={styles.dropdownTitle}>
+              {dropdown === 'program' ? 'Select Program' : 'Select Year Level'}
+            </Text>
+            {(dropdown === 'program' ? PROGRAMS : YEAR_LEVELS).map((option) => {
+              const selected =
+                dropdown === 'program'
+                  ? form.program === option
+                  : form.yearLevel === option;
+
+              return (
+                <TouchableOpacity
+                  key={option}
+                  onPress={() => {
+                    hapticLight();
+                    updateField(dropdown === 'program' ? 'program' : 'yearLevel', option);
+                    setDropdown(null);
+                  }}
+                  style={[styles.dropdownOption, selected && styles.dropdownOptionSelected]}
+                >
+                  <Text
+                    style={[
+                      styles.dropdownOptionText,
+                      selected && styles.dropdownOptionTextSelected,
+                    ]}
+                  >
+                    {option}
+                  </Text>
+                  {selected ? (
+                    <Ionicons name="checkmark" size={18} color={APP_COLORS.primary} />
+                  ) : null}
+                </TouchableOpacity>
+              );
+            })}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </KeyboardAvoidingView>
+  );
+}
+
+function DropdownField({
+  label,
+  onPress,
+  placeholder,
+  value,
+}: {
+  label: string;
+  onPress: () => void;
+  placeholder: string;
+  value: string;
+}) {
+  return (
+    <View style={styles.dropdownFieldWrap}>
+      <Text style={styles.label}>{label}</Text>
+      <TouchableOpacity activeOpacity={0.82} onPress={onPress} style={styles.dropdownField}>
+        <Text style={[styles.dropdownValue, !value && styles.dropdownPlaceholder]}>
+          {value || placeholder}
+        </Text>
+        <Ionicons name="chevron-down" size={18} color={APP_COLORS.textMuted} />
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -286,21 +333,53 @@ const styles = StyleSheet.create({
   },
   container: {
     flexGrow: 1,
-    padding: 24,
+    padding: 22,
     backgroundColor: APP_COLORS.background,
+  },
+  hero: {
+    alignItems: 'center',
+    marginTop: 30,
+    marginBottom: 22,
+  },
+  heroBadge: {
+    alignItems: 'center',
+    backgroundColor: APP_COLORS.surface,
+    borderColor: APP_COLORS.border,
+    borderRadius: 22,
+    borderWidth: 1,
+    height: 90,
+    justifyContent: 'center',
+    marginBottom: 12,
+    width: 90,
+    shadowColor: APP_COLORS.shadow,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 1,
+    shadowRadius: 20,
+    elevation: 4,
   },
   title: {
     fontSize: 28,
-    fontWeight: '800',
-    color: APP_COLORS.primary,
+    fontWeight: '900',
+    color: APP_COLORS.text,
     textAlign: 'center',
-    marginTop: 36,
     marginBottom: 4,
   },
   subtitle: {
     textAlign: 'center',
     color: APP_COLORS.textMuted,
-    marginBottom: 24,
+    marginBottom: 6,
+  },
+  formPanel: {
+    backgroundColor: APP_COLORS.surface,
+    borderColor: APP_COLORS.border,
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 16,
+    shadowColor: APP_COLORS.shadow,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 1,
+    shadowRadius: 24,
+    elevation: 4,
   },
   input: {
     borderWidth: 1,
@@ -317,34 +396,70 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     marginTop: 4,
   },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 16,
+  dropdownFieldWrap: {
+    marginBottom: 12,
   },
-  chip: {
-    borderWidth: 1,
-    borderColor: APP_COLORS.border,
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+  dropdownField: {
+    alignItems: 'center',
     backgroundColor: APP_COLORS.surface,
+    borderColor: APP_COLORS.border,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    minHeight: 48,
+    paddingHorizontal: 13,
   },
-  chipSelected: {
-    backgroundColor: APP_COLORS.primary,
-    borderColor: APP_COLORS.primary,
-  },
-  chipText: {
-    color: APP_COLORS.textMuted,
-  },
-  chipTextSelected: {
-    color: APP_COLORS.surface,
+  dropdownValue: {
+    color: APP_COLORS.text,
+    flex: 1,
     fontWeight: '700',
+  },
+  dropdownPlaceholder: {
+    color: APP_COLORS.placeholder,
+    fontWeight: '500',
+  },
+  dropdownBackdrop: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(26, 10, 0, 0.32)',
+    flex: 1,
+    justifyContent: 'center',
+    padding: 22,
+  },
+  dropdownCard: {
+    backgroundColor: APP_COLORS.surface,
+    borderRadius: 12,
+    padding: 12,
+    width: '100%',
+  },
+  dropdownTitle: {
+    color: APP_COLORS.text,
+    fontSize: 16,
+    fontWeight: '900',
+    marginBottom: 8,
+    paddingHorizontal: 4,
+  },
+  dropdownOption: {
+    alignItems: 'center',
+    borderRadius: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    minHeight: 44,
+    paddingHorizontal: 12,
+  },
+  dropdownOptionSelected: {
+    backgroundColor: APP_COLORS.surfaceAlt,
+  },
+  dropdownOptionText: {
+    color: APP_COLORS.textMuted,
+    fontWeight: '700',
+  },
+  dropdownOptionTextSelected: {
+    color: APP_COLORS.primary,
   },
   tipBubble: {
     backgroundColor: APP_COLORS.surfaceAlt,
-    borderRadius: 10,
+    borderRadius: 8,
     padding: 10,
     marginBottom: 8,
     borderLeftWidth: 3,

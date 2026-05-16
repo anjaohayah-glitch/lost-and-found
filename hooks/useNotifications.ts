@@ -1,13 +1,14 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import { useRootNavigationState, useRouter } from 'expo-router';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
-import { doc, updateDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 
 import { auth, db, firebaseReady } from '../services/firebase';
+import { useStore } from '../store/useStore';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -21,7 +22,10 @@ Notifications.setNotificationHandler({
 export function useNotifications() {
   const rootNavigationState = useRootNavigationState();
   const router = useRouter();
+  const setUnreadCount = useStore((state) => state.setUnreadCount);
   const lastNotificationResponse = Notifications.useLastNotificationResponse();
+  const initializedNotificationIds = useRef(false);
+  const seenNotificationIds = useRef(new Set<string>());
 
   useEffect(() => {
     let active = true;
@@ -52,6 +56,71 @@ export function useNotifications() {
   }, []);
 
   useEffect(() => {
+    if (!firebaseReady || !auth || !db) {
+      setUnreadCount(0);
+      return;
+    }
+
+    let notificationsUnsubscribe: (() => void) | undefined;
+
+    const authUnsubscribe = onAuthStateChanged(auth, (user) => {
+      notificationsUnsubscribe?.();
+      notificationsUnsubscribe = undefined;
+      initializedNotificationIds.current = false;
+      seenNotificationIds.current = new Set();
+
+      if (!user || !db) {
+        setUnreadCount(0);
+        return;
+      }
+
+      notificationsUnsubscribe = onSnapshot(
+        query(collection(db, 'notifications'), where('userId', '==', user.uid)),
+        (snapshot) => {
+          const unread = snapshot.docs.filter((entry) => entry.data().read === false).length;
+          setUnreadCount(unread);
+
+          const unreadDocs = snapshot.docs.filter((entry) => entry.data().read === false);
+
+          if (initializedNotificationIds.current) {
+            unreadDocs.forEach((entry) => {
+              if (seenNotificationIds.current.has(entry.id)) {
+                return;
+              }
+
+              const data = entry.data();
+              const message =
+                typeof data.message === 'string' ? data.message : 'You have a new FoxFindz update.';
+
+              Notifications.scheduleNotificationAsync({
+                content: {
+                  title: 'FoxFindz',
+                  body: message,
+                  data: {
+                    postId: typeof data.postId === 'string' ? data.postId : '',
+                    type: typeof data.type === 'string' ? data.type : 'update',
+                  },
+                  sound: 'default',
+                },
+                trigger: null,
+              }).catch(() => undefined);
+            });
+          }
+
+          seenNotificationIds.current = new Set(unreadDocs.map((entry) => entry.id));
+          initializedNotificationIds.current = true;
+        },
+        () => setUnreadCount(0),
+      );
+    });
+
+    return () => {
+      notificationsUnsubscribe?.();
+      authUnsubscribe();
+    };
+  }, [setUnreadCount]);
+
+  useEffect(() => {
     if (!rootNavigationState?.key || !lastNotificationResponse) {
       return;
     }
@@ -68,7 +137,7 @@ export function useNotifications() {
   }, [lastNotificationResponse, rootNavigationState?.key, router]);
 }
 
-async function registerForPushNotifications(uid: string) {
+export async function registerForPushNotifications(uid: string) {
   if (!Device.isDevice || !db) {
     return;
   }

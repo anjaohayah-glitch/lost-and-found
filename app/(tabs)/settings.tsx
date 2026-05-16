@@ -5,6 +5,7 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { doc, serverTimestamp, updateDoc } from 'firebase/firestore';
 
 import OfflineBanner from '../../components/OfflineBanner';
+import FoxLogo from '../../components/FoxLogo';
 import {
   FIREBASE_SETUP_MESSAGE,
   auth,
@@ -221,7 +223,15 @@ export default function SettingsScreen() {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.title}>Settings</Text>
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.kicker}>Account Center</Text>
+            <Text style={styles.title}>Settings</Text>
+          </View>
+          <View style={styles.headerLogo}>
+            <FoxLogo size={42} />
+          </View>
+        </View>
 
         {!firebaseReady ? (
           <OfflineBanner message={FIREBASE_SETUP_MESSAGE} tone="info" />
@@ -233,29 +243,43 @@ export default function SettingsScreen() {
         ) : null}
 
         <View style={styles.profileCard}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {(profile?.name ?? auth?.currentUser?.email ?? 'G').charAt(0).toUpperCase()}
-            </Text>
+          <View style={styles.profileGlow} />
+          <View style={styles.profileHeader}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {(profile?.name ?? auth?.currentUser?.email ?? 'G').charAt(0).toUpperCase()}
+              </Text>
+            </View>
+            <View style={styles.rolePill}>
+              <Ionicons
+                color={APP_COLORS.primaryDark}
+                name={profile?.role === 'admin' ? 'shield-checkmark-outline' : signedIn ? 'person-outline' : 'person-circle-outline'}
+                size={12}
+              />
+              <Text style={styles.roleText}>
+                {profile?.role === 'admin' ? 'Admin' : signedIn ? 'User' : 'Guest'}
+              </Text>
+            </View>
           </View>
           <View style={styles.profileBody}>
-            <View style={styles.profileTop}>
-              <Text numberOfLines={1} style={styles.profileName}>
-                {profile?.name ?? 'Guest'}
-              </Text>
-              <View style={styles.rolePill}>
-                <Text style={styles.roleText}>
-                  {profile?.role === 'admin' ? 'Admin' : signedIn ? 'User' : 'Guest'}
-                </Text>
-              </View>
-            </View>
+            <Text numberOfLines={1} style={styles.profileName}>
+              {profile?.name ?? 'Guest'}
+            </Text>
             <Text numberOfLines={1} style={styles.profileEmail}>
               {profile?.email ?? auth?.currentUser?.email ?? 'No active session'}
             </Text>
-            <Text style={styles.profileMeta}>
-              {profile?.program ?? 'Campus Member'}
-              {profile?.yearLevel ? ` | ${profile.yearLevel}` : ''}
-            </Text>
+            <View style={styles.profileMetaRow}>
+              <View style={styles.profileMetaPill}>
+                <Ionicons color={APP_COLORS.surface} name="school-outline" size={12} />
+                <Text style={styles.profileMeta}>{profile?.program ?? 'Campus Member'}</Text>
+              </View>
+              {profile?.yearLevel ? (
+                <View style={styles.profileMetaPill}>
+                  <Ionicons color={APP_COLORS.surface} name="ribbon-outline" size={12} />
+                  <Text style={styles.profileMeta}>{profile.yearLevel}</Text>
+                </View>
+              ) : null}
+            </View>
           </View>
         </View>
 
@@ -339,11 +363,15 @@ export default function SettingsScreen() {
         transparent
         visible={editingProfile}
       >
+        <Pressable style={styles.modalPressable} onPress={() => setEditingProfile(false)}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.modalBackdrop}
         >
-          <View style={styles.modalCard}>
+          <Pressable
+            onPress={(event) => event.stopPropagation()}
+            style={styles.modalCard}
+          >
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Edit profile</Text>
               <TouchableOpacity
@@ -422,8 +450,9 @@ export default function SettingsScreen() {
                 <Text style={styles.saveButtonText}>Save changes</Text>
               )}
             </TouchableOpacity>
-          </View>
+          </Pressable>
         </KeyboardAvoidingView>
+        </Pressable>
       </Modal>
     </SafeAreaView>
   );
@@ -439,70 +468,130 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 28,
   },
-  title: {
-    color: APP_COLORS.text,
-    fontSize: 24,
-    fontWeight: '900',
+  header: {
+    alignItems: 'center',
+    backgroundColor: APP_COLORS.primaryDark,
+    borderRadius: 24,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     marginBottom: 14,
+    minHeight: 104,
+    overflow: 'hidden',
+    padding: 18,
+    shadowColor: APP_COLORS.shadow,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 1,
+    shadowRadius: 20,
+    elevation: 5,
   },
-  profileCard: {
+  kicker: {
+    color: 'rgba(255,255,255,0.74)',
+    fontSize: 12,
+    fontWeight: '900',
+    marginBottom: 5,
+    textTransform: 'uppercase',
+  },
+  title: {
+    color: APP_COLORS.surface,
+    fontSize: 28,
+    fontWeight: '900',
+  },
+  headerLogo: {
     alignItems: 'center',
     backgroundColor: APP_COLORS.surface,
-    borderColor: APP_COLORS.border,
-    borderRadius: 14,
-    borderWidth: 1,
-    flexDirection: 'row',
-    padding: 16,
+    borderRadius: 18,
+    height: 58,
+    justifyContent: 'center',
+    width: 58,
+  },
+  profileCard: {
+    backgroundColor: APP_COLORS.ink,
+    borderRadius: 24,
+    overflow: 'hidden',
+    padding: 18,
     marginBottom: 18,
+    shadowColor: APP_COLORS.shadow,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 1,
+    shadowRadius: 22,
+    elevation: 4,
+  },
+  profileGlow: {
+    backgroundColor: 'rgba(240,100,47,0.34)',
+    borderRadius: 80,
+    height: 120,
+    position: 'absolute',
+    right: -42,
+    top: -42,
+    width: 120,
+  },
+  profileHeader: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
   },
   avatar: {
     alignItems: 'center',
-    backgroundColor: APP_COLORS.surfaceAlt,
-    borderRadius: 24,
-    height: 48,
+    backgroundColor: APP_COLORS.surface,
+    borderRadius: 18,
+    height: 58,
     justifyContent: 'center',
-    marginRight: 12,
-    width: 48,
+    width: 58,
   },
   avatarText: {
-    color: APP_COLORS.primary,
-    fontSize: 18,
+    color: APP_COLORS.primaryDark,
+    fontSize: 22,
     fontWeight: '900',
   },
   profileBody: {
     flex: 1,
     minWidth: 0,
   },
-  profileTop: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 8,
-  },
   profileName: {
-    flex: 1,
-    fontSize: 20,
-    fontWeight: '800',
-    color: APP_COLORS.text,
+    fontSize: 24,
+    fontWeight: '900',
+    color: APP_COLORS.surface,
     marginBottom: 4,
   },
   rolePill: {
-    backgroundColor: APP_COLORS.surfaceAlt,
+    alignItems: 'center',
+    backgroundColor: APP_COLORS.surface,
     borderRadius: 999,
-    paddingHorizontal: 9,
-    paddingVertical: 3,
+    flexDirection: 'row',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
   roleText: {
-    color: APP_COLORS.primary,
+    color: APP_COLORS.primaryDark,
     fontSize: 11,
     fontWeight: '900',
   },
   profileEmail: {
-    color: APP_COLORS.textMuted,
-    marginBottom: 6,
+    color: 'rgba(255,255,255,0.74)',
+    marginBottom: 12,
+  },
+  profileMetaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  profileMetaPill: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderColor: 'rgba(255,255,255,0.18)',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
   profileMeta: {
-    color: APP_COLORS.textLight,
+    color: APP_COLORS.surface,
     fontSize: 12,
+    fontWeight: '800',
   },
   sectionTitle: {
     fontSize: 12,
@@ -515,9 +604,14 @@ const styles = StyleSheet.create({
     backgroundColor: APP_COLORS.surface,
     borderColor: APP_COLORS.border,
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 18,
     overflow: 'hidden',
     marginBottom: 18,
+    shadowColor: APP_COLORS.shadow,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 1,
+    shadowRadius: 16,
+    elevation: 2,
   },
   row: {
     alignItems: 'center',
@@ -530,10 +624,10 @@ const styles = StyleSheet.create({
   },
   rowIcon: {
     alignItems: 'center',
-    borderRadius: 16,
-    height: 32,
+    borderRadius: 12,
+    height: 38,
     justifyContent: 'center',
-    width: 32,
+    width: 38,
   },
   rowIconDefault: {
     backgroundColor: APP_COLORS.surfaceAlt,
@@ -578,7 +672,7 @@ const styles = StyleSheet.create({
   logoutButton: {
     alignItems: 'center',
     backgroundColor: APP_COLORS.lost,
-    borderRadius: 12,
+    borderRadius: 16,
     flexDirection: 'row',
     gap: 8,
     justifyContent: 'center',
@@ -597,6 +691,9 @@ const styles = StyleSheet.create({
   loginText: {
     color: APP_COLORS.primary,
   },
+  modalPressable: {
+    flex: 1,
+  },
   modalBackdrop: {
     backgroundColor: 'rgba(26, 10, 0, 0.35)',
     flex: 1,
@@ -604,9 +701,9 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     backgroundColor: APP_COLORS.surface,
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    padding: 18,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
   },
   modalHeader: {
     alignItems: 'center',
@@ -669,7 +766,7 @@ const styles = StyleSheet.create({
   saveButton: {
     alignItems: 'center',
     backgroundColor: APP_COLORS.primary,
-    borderRadius: 12,
+    borderRadius: 14,
     minHeight: 48,
     justifyContent: 'center',
     marginTop: 2,

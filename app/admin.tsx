@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { type ComponentProps, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -40,6 +40,7 @@ import { sendPushToUser } from '../utils/sendPush';
 import { hapticLight, hapticSuccess, hapticWarning } from '../utils/haptics';
 
 type AdminPostFilter = 'pending' | 'approved' | 'resolved';
+type IoniconName = ComponentProps<typeof Ionicons>['name'];
 
 export default function AdminScreen() {
   const router = useRouter();
@@ -93,40 +94,83 @@ export default function AdminScreen() {
 
   const notifyPostOwner = async (
     post: Post,
-    notificationType: 'post_approved' | 'post_rejected',
+    notificationType:
+      | 'post_approved'
+      | 'post_rejected'
+      | 'post_resolved'
+      | 'item_found_notice',
   ) => {
     if (!db || !post.userId) {
       return false;
     }
 
-    const approved = notificationType === 'post_approved';
+    const notificationCopy = {
+      post_approved: {
+        title: 'Post Approved',
+        message: `Your post "${post.title}" has been approved and is now live!`,
+        pushBody: `Your "${post.title}" post is now live in the feed.`,
+      },
+      post_rejected: {
+        title: 'Post Not Approved',
+        message: `Your post "${post.title}" was not approved. Please review our community guidelines and try again.`,
+        pushBody: `Your "${post.title}" post needs revision.`,
+      },
+      post_resolved: {
+        title: 'Post Resolved',
+        message: `Your post "${post.title}" has been marked solved by admin.`,
+        pushBody: `Your "${post.title}" post has been marked solved by admin.`,
+      },
+      item_found_notice: {
+        title: 'Someone Found Your Item',
+        message: "Someone's found your item. Please check at the Office.",
+        pushBody: "Someone's found your item. Please check at the Office.",
+      },
+    } satisfies Record<
+      typeof notificationType,
+      { title: string; message: string; pushBody: string }
+    >;
+    const copy = notificationCopy[notificationType];
 
     try {
       await addDoc(collection(db, 'notifications'), {
         userId: post.userId,
-        message: approved
-          ? `Your post "${post.title}" has been approved and is now live!`
-          : `Your post "${post.title}" was not approved. Please review our community guidelines and try again.`,
+        message: copy.message,
         read: false,
         createdAt: serverTimestamp(),
         postId: post.id,
         type: notificationType,
       });
+    } catch (error) {
+      console.warn('notifyPostOwner notification error:', error);
+      return false;
+    }
 
+    try {
       await sendPushToUser(
         post.userId,
-        approved ? 'Post Approved' : 'Post Not Approved',
-        approved
-          ? `Your "${post.title}" post is now live in the feed.`
-          : `Your "${post.title}" post needs revision.`,
+        copy.title,
+        copy.pushBody,
         { postId: post.id, type: notificationType },
       );
 
       return true;
     } catch (error) {
-      console.warn('notifyPostOwner error:', error);
-      return false;
+      console.warn('notifyPostOwner push error:', error);
+      return true;
     }
+  };
+
+  const notifyLostItemFound = async (post: Post) => {
+    hapticSuccess();
+
+    const notified = await notifyPostOwner(post, 'item_found_notice');
+
+    Alert.alert(
+      notified ? 'Notification Sent' : 'Notification Failed',
+      notified
+        ? `"${post.title}" owner was told to check at the Office.`
+        : 'The owner could not be notified.',
+    );
   };
 
   const getErrorMessage = (error: unknown) =>
@@ -219,9 +263,18 @@ export default function AdminScreen() {
             try {
               await updateDoc(doc(firestore, 'posts', post.id), {
                 status: 'resolved',
+                resolvedAt: serverTimestamp(),
+                resolvedBy: auth?.currentUser?.uid ?? null,
               });
 
-              Alert.alert('Resolved', `"${post.title}" was removed from the home feed.`);
+              const notified = await notifyPostOwner(post, 'post_resolved');
+
+              Alert.alert(
+                'Resolved',
+                notified
+                  ? `"${post.title}" was removed from the home feed and the owner was notified.`
+                  : `"${post.title}" was removed from the home feed, but the owner could not be notified.`,
+              );
               setSelectedPost(null);
             } catch (error) {
               console.error('resolvePost error:', error);
@@ -393,12 +446,22 @@ export default function AdminScreen() {
                 />
               </>
             ) : selectedPost.status === 'approved' ? (
-              <ActionButton
-                icon="archive-outline"
-                label="Mark Resolved"
-                onPress={() => resolvePost(selectedPost)}
-                style={styles.resolveButton}
-              />
+              <>
+                {isLost ? (
+                  <ActionButton
+                    icon="notifications-outline"
+                    label="Notify Owner"
+                    onPress={() => void notifyLostItemFound(selectedPost)}
+                    style={styles.notifyButton}
+                  />
+                ) : null}
+                <ActionButton
+                  icon="archive-outline"
+                  label="Mark Resolved"
+                  onPress={() => resolvePost(selectedPost)}
+                  style={styles.resolveButton}
+                />
+              </>
             ) : (
               <View style={styles.resolvedNotice}>
                 <Ionicons name="checkmark-done-outline" size={16} color={APP_COLORS.textMuted} />
@@ -415,6 +478,7 @@ export default function AdminScreen() {
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
         <View>
+          <Text style={styles.headerKicker}>Moderator Workspace</Text>
           <Text style={styles.title}>Admin Dashboard</Text>
           <Text style={styles.subtitle}>
             {dashboard.pending} pending approval
@@ -425,7 +489,9 @@ export default function AdminScreen() {
             hapticWarning();
             void handleLogout();
           }}
+          style={styles.logoutButton}
         >
+          <Ionicons name="log-out-outline" size={16} color={APP_COLORS.surface} />
           <Text style={styles.logout}>Sign Out</Text>
         </TouchableOpacity>
       </View>
@@ -454,7 +520,7 @@ export default function AdminScreen() {
                     </Text>
                     <Text style={styles.overviewSub}>
                       Latest: {dashboard.latestTitle}
-                      {dashboard.latestTime ? ` • ${dashboard.latestTime}` : ''}
+                      {dashboard.latestTime ? ` | ${dashboard.latestTime}` : ''}
                     </Text>
                   </View>
                   <View style={styles.overviewIcon}>
@@ -594,6 +660,14 @@ export default function AdminScreen() {
                   </View>
                 ) : item.status === 'approved' ? (
                   <View style={styles.quickActions}>
+                    {item.type === 'lost' ? (
+                      <ActionButton
+                        icon="notifications-outline"
+                        label="Notify Owner"
+                        onPress={() => void notifyLostItemFound(item)}
+                        style={styles.notifyButton}
+                      />
+                    ) : null}
                     <ActionButton
                       icon="archive-outline"
                       label="Mark Resolved"
@@ -611,7 +685,7 @@ export default function AdminScreen() {
   );
 }
 
-function DetailMeta({ icon, value }: { icon: string; value: string }) {
+function DetailMeta({ icon, value }: { icon: IoniconName; value: string }) {
   return (
     <View style={styles.detailMetaRow}>
       <Ionicons name={icon} size={15} color={APP_COLORS.textMuted} />
@@ -627,7 +701,7 @@ function StatCard({
   color,
   background,
 }: {
-  icon: string;
+  icon: IoniconName;
   label: string;
   value: number;
   color: string;
@@ -674,7 +748,7 @@ function ActionButton({
   onPress,
   style,
 }: {
-  icon: string;
+  icon: IoniconName;
   label: string;
   onPress: () => void;
   style: object;
@@ -701,11 +775,18 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    backgroundColor: APP_COLORS.primary,
+    alignItems: 'center',
+    backgroundColor: APP_COLORS.primaryDark,
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 16,
+    paddingTop: 18,
+    paddingBottom: 20,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    shadowColor: APP_COLORS.shadow,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 1,
+    shadowRadius: 20,
+    elevation: 8,
   },
   backBtn: {
     flexDirection: 'row',
@@ -726,10 +807,17 @@ const styles = StyleSheet.create({
   headerSpacer: {
     width: 60,
   },
+  headerKicker: {
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: 11,
+    fontWeight: '900',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
   title: {
     color: APP_COLORS.surface,
-    fontSize: 22,
-    fontWeight: '800',
+    fontSize: 26,
+    fontWeight: '900',
   },
   subtitle: {
     color: 'rgba(255,255,255,0.82)',
@@ -738,7 +826,19 @@ const styles = StyleSheet.create({
   },
   logout: {
     color: APP_COLORS.surface,
-    fontWeight: '700',
+    fontWeight: '800',
+    fontSize: 12,
+  },
+  logoutButton: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderColor: 'rgba(255,255,255,0.18)',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
   },
   container: {
     flex: 1,
@@ -754,9 +854,14 @@ const styles = StyleSheet.create({
     backgroundColor: APP_COLORS.surface,
     borderWidth: 1,
     borderColor: APP_COLORS.border,
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 22,
+    padding: 18,
     marginBottom: 12,
+    shadowColor: APP_COLORS.shadow,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 1,
+    shadowRadius: 18,
+    elevation: 3,
   },
   overviewText: {
     flex: 1,
@@ -782,9 +887,9 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   overviewIcon: {
-    width: 54,
-    height: 54,
-    borderRadius: 14,
+    width: 58,
+    height: 58,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: APP_COLORS.surfaceAlt,
@@ -800,8 +905,13 @@ const styles = StyleSheet.create({
     backgroundColor: APP_COLORS.surface,
     borderWidth: 1,
     borderColor: APP_COLORS.border,
-    borderRadius: 14,
+    borderRadius: 18,
     padding: 14,
+    shadowColor: APP_COLORS.shadow,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 1,
+    shadowRadius: 14,
+    elevation: 2,
   },
   statIcon: {
     width: 34,
@@ -828,7 +938,7 @@ const styles = StyleSheet.create({
     backgroundColor: APP_COLORS.surface,
     borderWidth: 1,
     borderColor: APP_COLORS.border,
-    borderRadius: 14,
+    borderRadius: 18,
     paddingVertical: 12,
     marginBottom: 16,
   },
@@ -873,7 +983,7 @@ const styles = StyleSheet.create({
     backgroundColor: APP_COLORS.surface,
     borderWidth: 1,
     borderColor: APP_COLORS.border,
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 4,
     marginBottom: 14,
   },
@@ -904,7 +1014,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFBEB',
     borderWidth: 1,
     borderColor: '#FCD34D',
-    borderRadius: 8,
+    borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 6,
     marginBottom: 6,
@@ -943,6 +1053,9 @@ const styles = StyleSheet.create({
   },
   resolveButton: {
     backgroundColor: APP_COLORS.primary,
+  },
+  notifyButton: {
+    backgroundColor: '#92400E',
   },
   actionText: {
     color: APP_COLORS.surface,

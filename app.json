@@ -5,21 +5,38 @@
     "scheme": "foxfind",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/loading-icon.png",
     "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#FF6B35"
     },
+    "loading": {
+      "icon": "./assets/loading-icon.png",
+      "backgroundColor": "#FFFFFF",
+      "hideExponentText": false
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "icon": "./assets/loading-icon.png",
+      "splash": {
+        "image": "./assets/splash-icon.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#FF6B35"
+      }
     },
     "android": {
       "package": "com.foxfindz.app",
+      "icon": "./assets/loading-icon.png",
+      "splash": {
+        "image": "./assets/splash-icon.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#FF6B35"
+      },
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#FF6B35"
       },
       "permissions": [
         "android.permission.NOTIFICATIONS",
@@ -66,11 +83,11 @@
         "uploadPreset": "",
         "folder": "foxfindz/posts"
       },
+      "router": {},
       "eas": {
-        "projectId": "69cd594b-d714-493c-b9eb-95f3c596815f"
-      },
-      "router": {}
+        "projectId": "3d47089b-3c6d-48eb-9692-15689dccd42b"
+      }
     },
-    "owner": "ayaanjao"
+    "owner": "ayabanana"
   }
 }

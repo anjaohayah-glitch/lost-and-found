@@ -49,7 +49,7 @@ const DEMO_REWARDS: RewardEntry[] = [
   },
 ];
 
-const POINTS_PER_APPROVED_POST = 25;
+const POINTS_PER_APPROVED_FOUND_POST = 25;
 
 const BADGES = [
   {
@@ -71,13 +71,13 @@ const BADGES = [
 
 export default function RewardsScreen() {
   const uid = auth?.currentUser?.uid;
-  const [approvedPosts, setApprovedPosts] = useState<Post[]>([]);
+  const [approvedFoundPosts, setApprovedFoundPosts] = useState<Post[]>([]);
   const [rewardEntries, setRewardEntries] = useState<RewardEntry[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (!firebaseReady || !db || !uid) {
-      setApprovedPosts([]);
+      setApprovedFoundPosts([]);
       return;
     }
 
@@ -90,17 +90,19 @@ export default function RewardsScreen() {
     const unsubscribe = onSnapshot(
       postsQuery,
       (snapshot) => {
-        setApprovedPosts(
-          snapshot.docs.map(
-            (entry) =>
-              ({
-                id: entry.id,
-                ...(entry.data() as Omit<Post, 'id'>),
-              }) satisfies Post,
-          ),
+        setApprovedFoundPosts(
+          snapshot.docs
+            .map(
+              (entry) =>
+                ({
+                  id: entry.id,
+                  ...(entry.data() as Omit<Post, 'id'>),
+                }) satisfies Post,
+            )
+            .filter((post) => post.type === 'found'),
         );
       },
-      () => setApprovedPosts([]),
+      () => setApprovedFoundPosts([]),
     );
 
     return unsubscribe;
@@ -144,14 +146,15 @@ export default function RewardsScreen() {
   }, [uid]);
 
   const earnedPoints = useMemo(() => {
-    const approvedPostPoints = approvedPosts.length * POINTS_PER_APPROVED_POST;
+    const approvedFoundPostPoints =
+      approvedFoundPosts.length * POINTS_PER_APPROVED_FOUND_POST;
     const manualRewardPoints = rewardEntries.reduce(
       (total, reward) => total + reward.points,
       0,
     );
 
-    return approvedPostPoints + manualRewardPoints;
-  }, [approvedPosts.length, rewardEntries]);
+    return approvedFoundPostPoints + manualRewardPoints;
+  }, [approvedFoundPosts.length, rewardEntries]);
 
   const unlockedBadges = BADGES.filter((badge) => earnedPoints >= badge.points);
   const currentBadge = unlockedBadges.at(-1);
@@ -165,12 +168,12 @@ export default function RewardsScreen() {
   const pointsToNext = nextBadge ? Math.max(nextBadge.points - earnedPoints, 0) : 0;
 
   const activity = useMemo(() => {
-    const approvedPostRewards: RewardEntry[] = approvedPosts.map((post) => ({
+    const approvedPostRewards: RewardEntry[] = approvedFoundPosts.map((post) => ({
       id: `post-${post.id}`,
       userId: post.userId ?? '',
-      title: `${post.type === 'lost' ? 'Lost' : 'Found'} report approved`,
+      title: 'Found report approved',
       description: post.title,
-      points: POINTS_PER_APPROVED_POST,
+      points: POINTS_PER_APPROVED_FOUND_POST,
       createdAt: post.approvedAt ?? post.createdAt,
     }));
 
@@ -180,7 +183,7 @@ export default function RewardsScreen() {
 
       return rightTime - leftTime;
     });
-  }, [approvedPosts, rewardEntries]);
+  }, [approvedFoundPosts, rewardEntries]);
 
   const emptyMessage = (() => {
     if (!firebaseReady) {
@@ -269,8 +272,8 @@ export default function RewardsScreen() {
 
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>{approvedPosts.length}</Text>
-            <Text style={styles.statLabel}>approved posts</Text>
+            <Text style={styles.statValue}>{approvedFoundPosts.length}</Text>
+            <Text style={styles.statLabel}>approved found posts</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statValue}>{rewardEntries.length}</Text>

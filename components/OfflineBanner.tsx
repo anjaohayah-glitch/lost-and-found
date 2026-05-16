@@ -38,7 +38,7 @@ export default function OfflineBanner({ message, tone = 'warning' }: OfflineBann
 const styles = StyleSheet.create({
   banner: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 10,
     marginBottom: 12,

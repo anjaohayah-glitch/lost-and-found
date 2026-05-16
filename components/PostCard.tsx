@@ -80,9 +80,15 @@ export default function PostCard({ post, onPress, disableNav }: PostCardProps) {
                 backgroundColor: isLost
                   ? APP_COLORS.lostLight
                   : APP_COLORS.foundLight,
+                borderColor: isLost ? APP_COLORS.lostBorder : APP_COLORS.foundBorder,
               },
             ]}
           >
+            <Ionicons
+              name={isLost ? 'search-outline' : 'hand-left-outline'}
+              size={12}
+              color={isLost ? APP_COLORS.lost : APP_COLORS.found}
+            />
             <Text
               style={[
                 styles.typeText,
@@ -96,19 +102,21 @@ export default function PostCard({ post, onPress, disableNav }: PostCardProps) {
         </View>
 
         <Text style={styles.title} numberOfLines={2}>{post.title}</Text>
-        <Text style={styles.meta}>{getCategoryLabel(post.category)}</Text>
         <Text style={styles.description} numberOfLines={3}>
           {post.description}
         </Text>
 
         <View style={styles.footer}>
           <View style={styles.footerItem}>
-            <Ionicons name="location-outline" size={12} color={APP_COLORS.textLight} />
+            <Ionicons name="pricetag-outline" size={12} color={APP_COLORS.primary} />
+            <Text style={styles.footerText}>{getCategoryLabel(post.category)}</Text>
+          </View>
+          <View style={styles.footerItem}>
+            <Ionicons name="location-outline" size={12} color={APP_COLORS.primary} />
             <Text style={styles.footerText}>{post.location}</Text>
           </View>
-          <Text style={styles.footerDot}>.</Text>
           <View style={styles.footerItem}>
-            <Ionicons name="person-outline" size={12} color={APP_COLORS.textLight} />
+            <Ionicons name="person-outline" size={12} color={APP_COLORS.primary} />
             <Text style={styles.footerText}>{post.userName}</Text>
           </View>
         </View>
@@ -133,14 +141,16 @@ export default function PostCard({ post, onPress, disableNav }: PostCardProps) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: APP_COLORS.surface,
-    borderRadius: 14,
+    borderColor: APP_COLORS.border,
+    borderRadius: 18,
+    borderWidth: 1,
     overflow: 'hidden',
-    marginBottom: 12,
+    marginBottom: 14,
     shadowColor: APP_COLORS.shadow,
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 1,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowRadius: 18,
+    elevation: 3,
   },
   cardPressed: {
     opacity: 0.88,
@@ -148,7 +158,8 @@ const styles = StyleSheet.create({
   },
   image: {
     width: '100%',
-    height: 180,
+    height: 176,
+    backgroundColor: APP_COLORS.surfaceAlt,
   },
   imageFallback: {
     alignItems: 'center',
@@ -161,7 +172,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   body: {
-    padding: 14,
+    padding: 16,
   },
   headerRow: {
     flexDirection: 'row',
@@ -170,8 +181,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   typeBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    alignItems: 'center',
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 4,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
     borderRadius: 999,
   },
   typeText: {
@@ -183,17 +198,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   title: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '800',
     color: APP_COLORS.text,
-    marginBottom: 4,
-    lineHeight: 22,
-  },
-  meta: {
-    color: APP_COLORS.primaryDark,
-    fontSize: 12,
-    marginBottom: 6,
-    fontWeight: '600',
+    marginBottom: 5,
+    lineHeight: 23,
   },
   description: {
     color: APP_COLORS.textMuted,
@@ -205,19 +214,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 4,
+    gap: 7,
   },
   footerItem: {
+    backgroundColor: APP_COLORS.background,
+    borderColor: APP_COLORS.border,
+    borderRadius: 999,
+    borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
   },
   footerText: {
-    color: APP_COLORS.textLight,
+    color: APP_COLORS.textMuted,
     fontSize: 12,
-  },
-  footerDot: {
-    color: APP_COLORS.textLight,
-    fontSize: 12,
+    fontWeight: '700',
   },
 });

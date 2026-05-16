@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
+import { onAuthStateChanged } from 'firebase/auth';
 import {
   collection,
   deleteDoc,
@@ -34,6 +35,7 @@ import { APP_COLORS } from '../../src/constants/colors';
 import type { TimestampLike } from '../../src/types/post';
 import { formatPostDate, resolvePostDate } from '../../src/utils/timeAgo';
 import { useStore } from '../../store/useStore';
+import { registerForPushNotifications } from '../../hooks/useNotifications';
 import {
   hapticLight,
   hapticMedium,
@@ -73,6 +75,24 @@ function getNotificationMeta(type?: string) {
     };
   }
 
+  if (type === 'post_resolved') {
+    return {
+      icon: 'checkmark-done-outline' as const,
+      color: APP_COLORS.primary,
+      background: APP_COLORS.surfaceAlt,
+      label: 'Solved',
+    };
+  }
+
+  if (type === 'item_found_notice') {
+    return {
+      icon: 'sparkles-outline' as const,
+      color: '#92400E',
+      background: '#FFFBEB',
+      label: 'Found',
+    };
+  }
+
   return {
     icon: 'notifications-outline' as const,
     color: APP_COLORS.primary,
@@ -96,49 +116,58 @@ export default function NotificationsScreen() {
   }, []);
 
   useEffect(() => {
-    const uid = auth?.currentUser?.uid;
-
-    if (!firebaseReady || !db || !uid) {
+    if (!firebaseReady || !db || !auth) {
       setNotifications([]);
       setUnreadCount(0);
       return;
     }
 
-    const notificationsQuery = query(
-      collection(db, 'notifications'),
-      where('userId', '==', uid),
-    );
+    let notificationsUnsubscribe: (() => void) | undefined;
 
-    const unsubscribe = onSnapshot(
-      notificationsQuery,
-      (snapshot) => {
-        const nextNotifications = snapshot.docs
-          .map(
-            (entry) =>
-              ({
-                id: entry.id,
-                ...(entry.data() as Omit<AppNotification, 'id'>),
-              }) satisfies AppNotification,
-          )
-          .sort((left, right) => {
-            const leftTime = resolvePostDate(left.createdAt)?.getTime() ?? 0;
-            const rightTime = resolvePostDate(right.createdAt)?.getTime() ?? 0;
+    const authUnsubscribe = onAuthStateChanged(auth, (user) => {
+      notificationsUnsubscribe?.();
+      notificationsUnsubscribe = undefined;
 
-            return rightTime - leftTime;
-          });
-
-        setNotifications(nextNotifications);
-        setUnreadCount(
-          nextNotifications.filter((notification) => !notification.read).length,
-        );
-      },
-      () => {
+      if (!user || !db) {
         setNotifications([]);
         setUnreadCount(0);
-      },
-    );
+        return;
+      }
 
-    return unsubscribe;
+      notificationsUnsubscribe = onSnapshot(
+        query(collection(db, 'notifications'), where('userId', '==', user.uid)),
+        (snapshot) => {
+          const nextNotifications = snapshot.docs
+            .map(
+              (entry) =>
+                ({
+                  id: entry.id,
+                  ...(entry.data() as Omit<AppNotification, 'id'>),
+                }) satisfies AppNotification,
+            )
+            .sort((left, right) => {
+              const leftTime = resolvePostDate(left.createdAt)?.getTime() ?? 0;
+              const rightTime = resolvePostDate(right.createdAt)?.getTime() ?? 0;
+
+              return rightTime - leftTime;
+            });
+
+          setNotifications(nextNotifications);
+          setUnreadCount(
+            nextNotifications.filter((notification) => !notification.read).length,
+          );
+        },
+        () => {
+          setNotifications([]);
+          setUnreadCount(0);
+        },
+      );
+    });
+
+    return () => {
+      notificationsUnsubscribe?.();
+      authUnsubscribe();
+    };
   }, [setUnreadCount]);
 
   const unreadCount = notifications.filter((notification) => !notification.read).length;
@@ -247,7 +276,13 @@ export default function NotificationsScreen() {
     setPushPermission(requested?.status ?? current?.status ?? null);
 
     if (requested?.status === 'granted') {
-      Alert.alert('Push notifications', 'Push notifications are now enabled.');
+      const uid = auth?.currentUser?.uid;
+
+      if (uid) {
+        await registerForPushNotifications(uid);
+      }
+
+      Alert.alert('Push notifications', 'Push notifications are now enabled for approvals and found-item alerts.');
       return;
     }
 
@@ -278,6 +313,7 @@ export default function NotificationsScreen() {
       <View style={styles.container}>
         <View style={styles.header}>
           <View>
+            <Text style={styles.kicker}>Activity Center</Text>
             <Text style={styles.title}>Notifications</Text>
             <Text style={styles.subtitle}>
               {unreadCount > 0
@@ -286,7 +322,7 @@ export default function NotificationsScreen() {
             </Text>
           </View>
           <View style={styles.headerIcon}>
-            <Ionicons color={APP_COLORS.primary} name="notifications-outline" size={24} />
+            <Ionicons color={APP_COLORS.primaryDark} name="notifications-outline" size={24} />
           </View>
         </View>
 
@@ -323,6 +359,21 @@ export default function NotificationsScreen() {
             {pushPermission === 'granted' ? 'On' : 'Off'}
           </Text>
         </TouchableOpacity>
+
+        <View style={styles.summaryRow}>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryValue}>{notifications.length}</Text>
+            <Text style={styles.summaryLabel}>Total</Text>
+          </View>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryValue}>{unreadCount}</Text>
+            <Text style={styles.summaryLabel}>Unread</Text>
+          </View>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryValue}>{pushPermission === 'granted' ? 'On' : 'Off'}</Text>
+            <Text style={styles.summaryLabel}>Push</Text>
+          </View>
+        </View>
 
         <View style={styles.toolbar}>
           <View style={styles.filterRow}>
@@ -415,7 +466,10 @@ export default function NotificationsScreen() {
                   </Text>
                 </View>
                 <TouchableOpacity
-                  onPress={() => confirmDeleteNotification(item.id)}
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    confirmDeleteNotification(item.id);
+                  }}
                   style={styles.deleteButton}
                   hitSlop={8}
                 >
@@ -449,56 +503,72 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    padding: 14,
+    padding: 16,
   },
   header: {
     alignItems: 'center',
-    backgroundColor: APP_COLORS.surface,
-    borderColor: APP_COLORS.border,
-    borderRadius: 14,
-    borderWidth: 1,
+    backgroundColor: APP_COLORS.primaryDark,
+    borderRadius: 24,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
-    padding: 16,
+    marginBottom: 14,
+    minHeight: 112,
+    padding: 18,
+    shadowColor: APP_COLORS.shadow,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 1,
+    shadowRadius: 20,
+    elevation: 5,
+  },
+  kicker: {
+    color: 'rgba(255,255,255,0.74)',
+    fontSize: 12,
+    fontWeight: '900',
+    marginBottom: 5,
+    textTransform: 'uppercase',
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '900',
-    color: APP_COLORS.text,
+    color: APP_COLORS.surface,
   },
   subtitle: {
-    color: APP_COLORS.textMuted,
+    color: 'rgba(255,255,255,0.76)',
     fontSize: 13,
     fontWeight: '700',
     marginTop: 3,
   },
   headerIcon: {
     alignItems: 'center',
-    backgroundColor: APP_COLORS.surfaceAlt,
-    borderRadius: 22,
-    height: 44,
+    backgroundColor: APP_COLORS.surface,
+    borderRadius: 18,
+    height: 58,
     justifyContent: 'center',
-    width: 44,
+    width: 58,
   },
   permissionCard: {
     alignItems: 'center',
     backgroundColor: APP_COLORS.surface,
     borderColor: APP_COLORS.border,
-    borderRadius: 12,
+    borderRadius: 18,
     borderWidth: 1,
     flexDirection: 'row',
     marginBottom: 12,
-    padding: 12,
+    padding: 14,
+    shadowColor: APP_COLORS.shadow,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 1,
+    shadowRadius: 16,
+    elevation: 2,
   },
   permissionIcon: {
     alignItems: 'center',
     backgroundColor: APP_COLORS.surfaceAlt,
-    borderRadius: 17,
-    height: 34,
+    borderRadius: 14,
+    height: 42,
     justifyContent: 'center',
     marginRight: 10,
-    width: 34,
+    width: 42,
   },
   permissionBody: {
     flex: 1,
@@ -514,13 +584,47 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   permissionState: {
-    color: APP_COLORS.textLight,
+    backgroundColor: APP_COLORS.background,
+    borderColor: APP_COLORS.border,
+    borderRadius: 999,
+    borderWidth: 1,
+    color: APP_COLORS.textMuted,
     fontSize: 12,
     fontWeight: '900',
     marginLeft: 10,
+    overflow: 'hidden',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
   permissionStateEnabled: {
+    backgroundColor: APP_COLORS.foundLight,
+    borderColor: APP_COLORS.foundBorder,
     color: APP_COLORS.found,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+  summaryCard: {
+    backgroundColor: APP_COLORS.surface,
+    borderColor: APP_COLORS.border,
+    borderRadius: 16,
+    borderWidth: 1,
+    flex: 1,
+    padding: 12,
+  },
+  summaryValue: {
+    color: APP_COLORS.text,
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  summaryLabel: {
+    color: APP_COLORS.textMuted,
+    fontSize: 11,
+    fontWeight: '800',
+    marginTop: 3,
+    textTransform: 'uppercase',
   },
   toolbar: {
     alignItems: 'center',
@@ -567,24 +671,29 @@ const styles = StyleSheet.create({
   item: {
     backgroundColor: APP_COLORS.surface,
     padding: 14,
-    borderRadius: 12,
-    marginBottom: 10,
+    borderRadius: 18,
+    marginBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: APP_COLORS.border,
+    shadowColor: APP_COLORS.shadow,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 1,
+    shadowRadius: 16,
+    elevation: 2,
   },
   itemUnread: {
-    borderLeftWidth: 4,
-    borderLeftColor: APP_COLORS.primary,
+    borderColor: APP_COLORS.primary,
+    backgroundColor: '#FFFCFA',
   },
   itemIcon: {
     alignItems: 'center',
-    borderRadius: 19,
-    height: 38,
+    borderRadius: 15,
+    height: 44,
     justifyContent: 'center',
     marginRight: 12,
-    width: 38,
+    width: 44,
   },
   itemBody: {
     flex: 1,
@@ -623,10 +732,12 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     alignItems: 'center',
-    height: 32,
+    backgroundColor: APP_COLORS.background,
+    borderRadius: 12,
+    height: 34,
     justifyContent: 'center',
     marginLeft: 8,
-    width: 32,
+    width: 34,
   },
   emptyWrap: {
     alignItems: 'center',

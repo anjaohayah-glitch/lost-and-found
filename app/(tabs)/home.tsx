@@ -28,6 +28,26 @@ import { hapticLight } from '../../utils/haptics';
 
 const CATEGORIES = [{ label: 'All', value: 'all', icon: 'apps-outline' as const }, ...CATEGORY_OPTIONS];
 
+const DAILY_QUOTES = [
+  'Small reports make lost items easier to return.',
+  'A clear post helps the right person find it faster.',
+  'Every found item is one step closer to its owner.',
+  'Good details turn a search into a match.',
+  'Campus care starts with returning what matters.',
+  'Post early, describe clearly, and check updates often.',
+  'One helpful report can save someone a difficult day.',
+];
+
+function getDailyQuote() {
+  const today = new Date();
+  const startOfYear = new Date(today.getFullYear(), 0, 0);
+  const dayOfYear = Math.floor(
+    (today.getTime() - startOfYear.getTime()) / 86_400_000,
+  );
+
+  return DAILY_QUOTES[dayOfYear % DAILY_QUOTES.length];
+}
+
 export default function HomeScreen() {
   const router = useRouter();
   const networkState = Network.useNetworkState();
@@ -37,6 +57,7 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
+  const dailyQuote = useMemo(() => getDailyQuote(), []);
 
   useEffect(() => {
     const offline =
@@ -123,32 +144,102 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => {
-            hapticLight();
-            setDrawerOpen(true);
-          }}
-          style={styles.headerBtn}
-        >
-          <Ionicons name="menu-outline" size={22} color={APP_COLORS.surface} />
-        </TouchableOpacity>
+        <View style={styles.topBar}>
+          <TouchableOpacity
+            onPress={() => {
+              hapticLight();
+              setDrawerOpen(true);
+            }}
+            style={styles.headerBtn}
+          >
+            <Ionicons name="menu-outline" size={22} color={APP_COLORS.surface} />
+          </TouchableOpacity>
 
-        <View style={styles.headerMid}>
-          <Ionicons name="paw-outline" size={22} color={APP_COLORS.surface} />
-          <Text style={styles.headerTitle}>FoxFindz</Text>
+          <View style={styles.headerMid}>
+            <Ionicons name="paw-outline" size={22} color={APP_COLORS.surface} />
+            <Text style={styles.headerTitle}>FoxFindz</Text>
+          </View>
+
+          <TouchableOpacity
+            onPress={() => router.push('/(tabs)/notifications')}
+            style={styles.headerBtn}
+          >
+            <Ionicons name="notifications-outline" size={22} color={APP_COLORS.surface} />
+            {unreadCount > 0 && (
+              <View style={styles.notifBadge}>
+                <Text style={styles.notifBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
 
-        <TouchableOpacity
-          onPress={() => router.push('/(tabs)/notifications')}
-          style={styles.headerBtn}
-        >
-          <Ionicons name="notifications-outline" size={22} color={APP_COLORS.surface} />
-          {unreadCount > 0 && (
-            <View style={styles.notifBadge}>
-              <Text style={styles.notifBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+        <View style={styles.heroHeader}>
+          <View style={styles.heroText}>
+            <Text style={styles.heroKicker}>Campus Lost and Found</Text>
+            <Text style={styles.heroTitle}>
+              {profile?.name ? `Welcome, ${profile.name.split(' ')[0]}` : 'Welcome to FoxFindz'}
+            </Text>
+            <View style={styles.dailyQuote}>
+              <Ionicons name="sparkles-outline" size={13} color="rgba(255,255,255,0.86)" />
+              <Text style={styles.dailyQuoteText}>{dailyQuote}</Text>
             </View>
-          )}
-        </TouchableOpacity>
+          </View>
+          <TouchableOpacity onPress={handleAvatarPress} style={styles.avatar}>
+            <Text style={styles.avatarText}>
+              {(profile?.name ?? 'U').charAt(0).toUpperCase()}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.searchWrap}>
+          <Ionicons name="search-outline" size={16} color={APP_COLORS.textMuted} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search item, place, or detail"
+            placeholderTextColor={APP_COLORS.textLight}
+            value={search}
+            onChangeText={setSearch}
+            returnKeyType="search"
+            clearButtonMode="while-editing"
+          />
+        </View>
+
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.actionButtonLost]}
+            onPress={() => handleCreate('lost')}
+            activeOpacity={0.82}
+          >
+            <Ionicons name="search-outline" size={15} color={APP_COLORS.lost} />
+            <Text style={[styles.actionText, { color: APP_COLORS.lost }]}>Report Lost</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.actionButtonFound]}
+            onPress={() => handleCreate('found')}
+            activeOpacity={0.82}
+          >
+            <Ionicons name="hand-left-outline" size={15} color={APP_COLORS.found} />
+            <Text style={[styles.actionText, { color: APP_COLORS.found }]}>Report Found</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.summaryRow}>
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryValue}>{posts.length}</Text>
+            <Text style={styles.summaryLabel}>{filter === 'lost' ? 'lost reports' : 'found reports'}</Text>
+          </View>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryValue}>{CATEGORIES.length - 1}</Text>
+            <Text style={styles.summaryLabel}>categories</Text>
+          </View>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryValue}>{isOffline ? 'Demo' : 'Live'}</Text>
+            <Text style={styles.summaryLabel}>feed status</Text>
+          </View>
+        </View>
       </View>
 
       <FlatList
@@ -166,59 +257,12 @@ export default function HomeScreen() {
         }
         ListHeaderComponent={
           <View>
-            <View style={styles.searchWrap}>
-              <Ionicons name="search-outline" size={16} color={APP_COLORS.textMuted} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search lost & found items..."
-                placeholderTextColor={APP_COLORS.textLight}
-                value={search}
-                onChangeText={setSearch}
-                returnKeyType="search"
-                clearButtonMode="while-editing"
-              />
-            </View>
-
-            <View style={styles.hero}>
-              <View style={styles.heroHeader}>
-                <View>
-                  <Text style={styles.heroTitle}>Home Feed</Text>
-                  <Text style={styles.heroSub}>Approved lost and found reports</Text>
-                </View>
-                <TouchableOpacity onPress={handleAvatarPress} style={styles.avatar}>
-                  <Text style={styles.avatarText}>
-                    {(profile?.name ?? 'U').charAt(0).toUpperCase()}
-                  </Text>
-                </TouchableOpacity>
+            {isOffline && (
+              <View style={styles.offlineBar}>
+                <Ionicons name="wifi-outline" size={13} color="#92400E" />
+                <Text style={styles.offlineText}>Offline, showing cached posts</Text>
               </View>
-
-              {isOffline && (
-                <View style={styles.offlineBar}>
-                  <Ionicons name="wifi-outline" size={13} color="#92400E" />
-                  <Text style={styles.offlineText}>Offline, showing cached posts</Text>
-                </View>
-              )}
-
-              <View style={styles.actionRow}>
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.actionButtonLost]}
-                  onPress={() => handleCreate('lost')}
-                  activeOpacity={0.82}
-                >
-                  <Ionicons name="search-outline" size={15} color={APP_COLORS.lost} />
-                  <Text style={[styles.actionText, { color: APP_COLORS.lost }]}>Lost</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.actionButtonFound]}
-                  onPress={() => handleCreate('found')}
-                  activeOpacity={0.82}
-                >
-                  <Ionicons name="hand-left-outline" size={15} color={APP_COLORS.found} />
-                  <Text style={[styles.actionText, { color: APP_COLORS.found }]}>Found</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+            )}
 
             <View style={styles.feedHeader}>
               <View style={styles.toggle}>
@@ -273,7 +317,7 @@ export default function HomeScreen() {
                     <Ionicons
                       name={cat.icon}
                       size={13}
-                      color={isActive ? APP_COLORS.lost : APP_COLORS.textMuted}
+                      color={isActive ? APP_COLORS.primary : APP_COLORS.textMuted}
                     />
                     <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
                       {cat.label}
@@ -287,7 +331,7 @@ export default function HomeScreen() {
         renderItem={({ item }) => <PostCard post={item} />}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Ionicons name="paw-outline" size={52} color={APP_COLORS.primary} style={styles.emptyIcon} />
+            <Ionicons name="search-outline" size={52} color={APP_COLORS.primary} style={styles.emptyIcon} />
             <Text style={styles.emptyTitle}>
               {search ? 'No results found' : 'Nothing here yet'}
             </Text>
@@ -314,19 +358,34 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F7F7F8' },
+  safe: { flex: 1, backgroundColor: APP_COLORS.background },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: APP_COLORS.primary,
+    backgroundColor: APP_COLORS.primaryDark,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 10,
+    paddingBottom: 18,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    shadowColor: APP_COLORS.shadow,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 1,
+    shadowRadius: 18,
+    elevation: 8,
+  },
+  topBar: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
   },
   headerBtn: {
-    width: 36,
-    height: 36,
+    width: 38,
+    height: 38,
     alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderColor: 'rgba(255,255,255,0.18)',
+    borderRadius: 12,
+    borderWidth: 1,
     justifyContent: 'center',
   },
   headerMid: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -334,7 +393,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     color: APP_COLORS.surface,
-    letterSpacing: 0.4,
   },
   notifBadge: {
     position: 'absolute',
@@ -348,40 +406,61 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   notifBadgeText: { color: APP_COLORS.primary, fontSize: 8, fontWeight: '900' },
-  hero: {
-    backgroundColor: APP_COLORS.surface,
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: APP_COLORS.border,
-    marginHorizontal: 14,
-    marginTop: 14,
-    marginBottom: 12,
-  },
   heroHeader: {
+    alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 12,
+  },
+  heroText: {
+    flex: 1,
+    paddingRight: 14,
+  },
+  heroKicker: {
+    color: 'rgba(255,255,255,0.76)',
+    fontSize: 12,
+    fontWeight: '800',
+    marginBottom: 4,
+    textTransform: 'uppercase',
   },
   heroTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: APP_COLORS.text,
-    marginBottom: 2,
+    color: APP_COLORS.surface,
+    fontSize: 24,
+    fontWeight: '900',
+    lineHeight: 30,
   },
-  heroSub: { color: APP_COLORS.textMuted, fontSize: 13 },
+  dailyQuote: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderColor: 'rgba(255,255,255,0.18)',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 10,
+    maxWidth: '100%',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  dailyQuoteText: {
+    color: 'rgba(255,255,255,0.86)',
+    flexShrink: 1,
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 16,
+  },
   avatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: APP_COLORS.surfaceAlt,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: APP_COLORS.surface,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: APP_COLORS.border,
+    borderColor: 'rgba(255,255,255,0.32)',
   },
-  avatarText: { color: APP_COLORS.primary, fontWeight: '800', fontSize: 15 },
+  avatarText: { color: APP_COLORS.primaryDark, fontWeight: '900', fontSize: 16 },
   offlineBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -389,7 +468,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFBEB',
     paddingHorizontal: 12,
     paddingVertical: 7,
-    borderRadius: 20,
+    borderRadius: 8,
+    marginHorizontal: 14,
+    marginTop: 12,
     marginBottom: 12,
     alignSelf: 'flex-start',
   },
@@ -406,14 +487,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   actionButtonLost: {
-    backgroundColor: APP_COLORS.lostLight,
-    borderLeftColor: APP_COLORS.lost,
-    borderColor: APP_COLORS.lostBorder,
+    backgroundColor: APP_COLORS.surface,
+    borderColor: 'rgba(255,255,255,0.55)',
   },
   actionButtonFound: {
-    backgroundColor: APP_COLORS.foundLight,
-    borderLeftColor: APP_COLORS.found,
-    borderColor: APP_COLORS.foundBorder,
+    backgroundColor: APP_COLORS.surface,
+    borderColor: 'rgba(255,255,255,0.55)',
   },
   actionText: { fontSize: 13, fontWeight: '800' },
   searchWrap: {
@@ -421,13 +500,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     backgroundColor: APP_COLORS.surface,
-    borderRadius: 22,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: APP_COLORS.border,
+    borderColor: 'rgba(255,255,255,0.65)',
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginHorizontal: 14,
+    paddingVertical: 12,
     marginBottom: 12,
+    shadowColor: APP_COLORS.shadow,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 1,
+    shadowRadius: 14,
+    elevation: 3,
   },
   searchInput: {
     flex: 1,
@@ -435,17 +518,50 @@ const styles = StyleSheet.create({
     color: APP_COLORS.text,
     paddingVertical: 0,
   },
+  summaryRow: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderColor: 'rgba(255,255,255,0.18)',
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  summaryItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  summaryValue: {
+    color: APP_COLORS.surface,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  summaryLabel: {
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 2,
+    textTransform: 'uppercase',
+  },
+  summaryDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
   feedHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 14,
+    paddingHorizontal: 0,
+    paddingTop: 14,
     marginBottom: 10,
   },
   toggle: {
     flexDirection: 'row',
     backgroundColor: APP_COLORS.surface,
-    borderRadius: 30,
+    borderRadius: 12,
     padding: 3,
     borderWidth: 1,
     borderColor: APP_COLORS.border,
@@ -455,8 +571,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     paddingHorizontal: 16,
-    paddingVertical: 7,
-    borderRadius: 30,
+    paddingVertical: 8,
+    borderRadius: 9,
   },
   toggleLost: { backgroundColor: APP_COLORS.lost },
   toggleFound: { backgroundColor: APP_COLORS.found },
@@ -464,7 +580,7 @@ const styles = StyleSheet.create({
   toggleTextActive: { color: APP_COLORS.surface },
   feedCount: { color: APP_COLORS.textLight, fontSize: 12, fontWeight: '600' },
   chipsRow: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 0,
     gap: 8,
     marginBottom: 12,
   },
@@ -474,17 +590,17 @@ const styles = StyleSheet.create({
     gap: 5,
     paddingHorizontal: 14,
     paddingVertical: 6,
-    borderRadius: 20,
+    borderRadius: 999,
     borderWidth: 1,
     borderColor: APP_COLORS.border,
     backgroundColor: APP_COLORS.surface,
   },
   chipActive: {
-    backgroundColor: APP_COLORS.lostLight,
-    borderColor: APP_COLORS.lost,
+    backgroundColor: APP_COLORS.accentLight,
+    borderColor: APP_COLORS.primary,
   },
   chipText: { fontSize: 12, fontWeight: '600', color: APP_COLORS.textMuted },
-  chipTextActive: { color: APP_COLORS.lost },
+  chipTextActive: { color: APP_COLORS.primary },
   listContent: { paddingHorizontal: 14, paddingBottom: 30 },
   empty: { alignItems: 'center', paddingTop: 50, paddingHorizontal: 40 },
   emptyIcon: { marginBottom: 12 },
@@ -494,7 +610,7 @@ const styles = StyleSheet.create({
     backgroundColor: APP_COLORS.primary,
     paddingHorizontal: 22,
     paddingVertical: 11,
-    borderRadius: 20,
+    borderRadius: 12,
   },
   emptyBtnText: { color: '#fff', fontWeight: '800', fontSize: 14 },
 });
