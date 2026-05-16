@@ -387,7 +387,7 @@ service cloud.firestore {
           'read'
         ]) &&
         request.resource.data.read == true;
-      allow delete: if false;
+      allow delete: if signedIn() && resource.data.userId == request.auth.uid;
     }
 
     match /conversations/{conversationId} {

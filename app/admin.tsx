@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { type ComponentProps, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -14,7 +14,6 @@ import { useRouter } from 'expo-router';
 import { signOut } from 'firebase/auth';
 import { Ionicons } from '@expo/vector-icons';
 import {
-  addDoc,
   collection,
   doc,
   onSnapshot,
@@ -36,10 +35,10 @@ import { APP_COLORS } from '../src/constants/colors';
 import type { Post } from '../src/types/post';
 import { resolvePostDate } from '../src/utils/timeAgo';
 import { useStore } from '../store/useStore';
-import { sendPushToUser } from '../utils/sendPush';
 import { hapticLight, hapticSuccess, hapticWarning } from '../utils/haptics';
 
 type AdminPostFilter = 'pending' | 'approved' | 'resolved';
+type IoniconName = ComponentProps<typeof Ionicons>['name'];
 
 export default function AdminScreen() {
   const router = useRouter();
@@ -91,44 +90,6 @@ export default function AdminScreen() {
     return unsubscribe;
   }, [profile, router]);
 
-  const notifyPostOwner = async (
-    post: Post,
-    notificationType: 'post_approved' | 'post_rejected',
-  ) => {
-    if (!db || !post.userId) {
-      return false;
-    }
-
-    const approved = notificationType === 'post_approved';
-
-    try {
-      await addDoc(collection(db, 'notifications'), {
-        userId: post.userId,
-        message: approved
-          ? `Your post "${post.title}" has been approved and is now live!`
-          : `Your post "${post.title}" was not approved. Please review our community guidelines and try again.`,
-        read: false,
-        createdAt: serverTimestamp(),
-        postId: post.id,
-        type: notificationType,
-      });
-
-      await sendPushToUser(
-        post.userId,
-        approved ? 'Post Approved' : 'Post Not Approved',
-        approved
-          ? `Your "${post.title}" post is now live in the feed.`
-          : `Your "${post.title}" post needs revision.`,
-        { postId: post.id, type: notificationType },
-      );
-
-      return true;
-    } catch (error) {
-      console.warn('notifyPostOwner error:', error);
-      return false;
-    }
-  };
-
   const getErrorMessage = (error: unknown) =>
     error instanceof Error ? error.message : 'Please try again.';
 
@@ -146,13 +107,9 @@ export default function AdminScreen() {
         approvedBy: auth?.currentUser?.uid ?? null,
       });
 
-      const notified = await notifyPostOwner(post, 'post_approved');
-
       Alert.alert(
         'Approved',
-        notified
-          ? `"${post.title}" is now live in the feed.`
-          : `"${post.title}" is now live in the feed, but the notification could not be sent.`,
+        `"${post.title}" is now live in the feed. The owner will be notified.`,
       );
       setSelectedPost(null);
     } catch (error) {
@@ -181,13 +138,9 @@ export default function AdminScreen() {
               status: 'rejected',
             });
 
-            const notified = await notifyPostOwner(post, 'post_rejected');
-
             Alert.alert(
               'Rejected',
-              notified
-                ? `"${post.title}" was rejected and the user was notified.`
-                : `"${post.title}" was rejected, but the notification could not be sent.`,
+              `"${post.title}" was rejected. The owner will be notified.`,
             );
             setSelectedPost(null);
           } catch (error) {
@@ -611,7 +564,7 @@ export default function AdminScreen() {
   );
 }
 
-function DetailMeta({ icon, value }: { icon: string; value: string }) {
+function DetailMeta({ icon, value }: { icon: IoniconName; value: string }) {
   return (
     <View style={styles.detailMetaRow}>
       <Ionicons name={icon} size={15} color={APP_COLORS.textMuted} />
@@ -627,7 +580,7 @@ function StatCard({
   color,
   background,
 }: {
-  icon: string;
+  icon: IoniconName;
   label: string;
   value: number;
   color: string;
@@ -674,7 +627,7 @@ function ActionButton({
   onPress,
   style,
 }: {
-  icon: string;
+  icon: IoniconName;
   label: string;
   onPress: () => void;
   style: object;
