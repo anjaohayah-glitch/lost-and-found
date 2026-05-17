@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -14,8 +14,11 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import type { User } from '@firebase/auth';
 import {
   createUserWithEmailAndPassword,
+  deleteUser,
+  sendEmailVerification,
   signOut,
   updateProfile,
 } from '@firebase/auth';
@@ -23,6 +26,7 @@ import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 
 import OfflineBanner from '../components/OfflineBanner';
 import FoxLogo from '../components/FoxLogo';
+import { clearDraft, loadDraft, saveDraft } from '../hooks/useOfflineQueue';
 import {
   FIREBASE_SETUP_MESSAGE,
   auth,
@@ -30,6 +34,7 @@ import {
   firebaseReady,
 } from '../services/firebase';
 import { APP_COLORS } from '../src/constants/colors';
+import { EULA_VERSION } from '../src/constants/eula';
 import { hapticLight, hapticMedium, hapticSuccess, hapticWarning } from '../utils/haptics';
 
 const PROGRAMS = [
@@ -42,6 +47,15 @@ const PROGRAMS = [
 ];
 
 const YEAR_LEVELS = ['1st Year', '2nd Year', '3rd Year', '4th Year'];
+const REGISTER_DRAFT_KEY = 'foxfindz_register_draft';
+
+interface RegisterDraft {
+  name: string;
+  email: string;
+  program: string;
+  yearLevel: string;
+  acceptedEula: boolean;
+}
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -53,8 +67,49 @@ export default function RegisterScreen() {
     yearLevel: '',
   });
   const [showPasswordTip, setShowPasswordTip] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [dropdown, setDropdown] = useState<null | 'program' | 'yearLevel'>(null);
+  const [acceptedEula, setAcceptedEula] = useState(false);
   const [loading, setLoading] = useState(false);
+  const registerDraft = useMemo<RegisterDraft>(
+    () => ({
+      name: form.name,
+      email: form.email,
+      program: form.program,
+      yearLevel: form.yearLevel,
+      acceptedEula,
+    }),
+    [acceptedEula, form.email, form.name, form.program, form.yearLevel],
+  );
+
+  useEffect(() => {
+    let active = true;
+
+    loadDraft<RegisterDraft>(REGISTER_DRAFT_KEY)
+      .then((saved) => {
+        if (!active || !saved) {
+          return;
+        }
+
+        setForm((current) => ({
+          ...current,
+          name: saved.name ?? '',
+          email: saved.email ?? '',
+          program: saved.program ?? '',
+          yearLevel: saved.yearLevel ?? '',
+        }));
+        setAcceptedEula(Boolean(saved.acceptedEula));
+      })
+      .catch(() => undefined);
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    void saveDraft(REGISTER_DRAFT_KEY, registerDraft).catch(() => undefined);
+  }, [registerDraft]);
 
   const updateField = (field: keyof typeof form, value: string) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -93,6 +148,14 @@ export default function RegisterScreen() {
       return;
     }
 
+    if (!acceptedEula) {
+      hapticWarning();
+      Alert.alert('Agreement Required', 'Please review and accept the EULA before creating an account.');
+      return;
+    }
+
+    let createdUser: User | null = null;
+
     try {
       setLoading(true);
 
@@ -101,6 +164,7 @@ export default function RegisterScreen() {
         email,
         form.password,
       );
+      createdUser = credential.user;
 
       await updateProfile(credential.user, {
         displayName: form.name.trim(),
@@ -114,13 +178,17 @@ export default function RegisterScreen() {
         role: 'user',
         isOnline: true,
         fcmToken: null,
+        eulaAcceptedAt: serverTimestamp(),
+        eulaVersion: EULA_VERSION,
         createdAt: serverTimestamp(),
       });
 
+      await sendEmailVerification(credential.user).catch(() => undefined);
+      await clearDraft(REGISTER_DRAFT_KEY).catch(() => undefined);
       await signOut(auth);
 
       hapticSuccess();
-      Alert.alert('Success', 'Account created. Please sign in.', [
+      Alert.alert('Verify your email', `We sent a verification link to ${email}. Please verify it before signing in.`, [
         {
           text: 'OK',
           onPress: () => router.replace('/login'),
@@ -129,6 +197,17 @@ export default function RegisterScreen() {
     } catch (error) {
       let message =
         error instanceof Error ? error.message : 'Registration failed.';
+
+      if (
+        createdUser &&
+        typeof error === 'object' &&
+        error &&
+        'code' in error &&
+        error.code === 'permission-denied'
+      ) {
+        await deleteUser(createdUser).catch(() => undefined);
+        message = 'Registration is blocked by Firestore rules. Deploy the latest rules, then try again.';
+      }
 
       if (
         typeof error === 'object' &&
@@ -194,16 +273,32 @@ export default function RegisterScreen() {
           />
 
           <View>
-            <TextInput
-              onBlur={() => setShowPasswordTip(false)}
-              onChangeText={(value) => updateField('password', value)}
-              onFocus={() => setShowPasswordTip(true)}
-              placeholder="Password"
-              placeholderTextColor={APP_COLORS.placeholder}
-              secureTextEntry
-              style={styles.input}
-              value={form.password}
-            />
+            <View style={styles.passwordInputWrap}>
+              <TextInput
+                onBlur={() => setShowPasswordTip(false)}
+                onChangeText={(value) => updateField('password', value)}
+                onFocus={() => setShowPasswordTip(true)}
+                placeholder="Password"
+                placeholderTextColor={APP_COLORS.placeholder}
+                secureTextEntry={!showPassword}
+                style={[styles.input, styles.passwordInput]}
+                value={form.password}
+              />
+              <TouchableOpacity
+                accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                onPress={() => {
+                  hapticLight();
+                  setShowPassword((current) => !current);
+                }}
+                style={styles.passwordToggle}
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={20}
+                  color={APP_COLORS.textMuted}
+                />
+              </TouchableOpacity>
+            </View>
             {showPasswordTip ? (
               <View style={styles.tipBubble}>
                 <Text style={styles.tipText}>
@@ -233,6 +328,34 @@ export default function RegisterScreen() {
               setDropdown('yearLevel');
             }}
           />
+
+          <TouchableOpacity
+            activeOpacity={0.82}
+            onPress={() => {
+              hapticLight();
+              setAcceptedEula((current) => !current);
+            }}
+            style={styles.eulaRow}
+          >
+            <View style={[styles.checkbox, acceptedEula ? styles.checkboxChecked : null]}>
+              {acceptedEula ? (
+                <Ionicons name="checkmark" size={15} color={APP_COLORS.surface} />
+              ) : null}
+            </View>
+            <Text style={styles.eulaText}>
+              I agree to the{' '}
+              <Text
+                onPress={() => {
+                  hapticLight();
+                  router.push('/eula');
+                }}
+                style={styles.eulaLink}
+              >
+                FoxFindz EULA
+              </Text>
+              .
+            </Text>
+          </TouchableOpacity>
 
           <TouchableOpacity
             disabled={loading}
@@ -390,6 +513,23 @@ const styles = StyleSheet.create({
     backgroundColor: APP_COLORS.surface,
     color: APP_COLORS.text,
   },
+  passwordInput: {
+    marginBottom: 0,
+    paddingRight: 48,
+  },
+  passwordInputWrap: {
+    marginBottom: 12,
+    position: 'relative',
+  },
+  passwordToggle: {
+    alignItems: 'center',
+    height: 44,
+    justifyContent: 'center',
+    position: 'absolute',
+    right: 4,
+    top: 2,
+    width: 44,
+  },
   label: {
     fontWeight: '800',
     color: APP_COLORS.text,
@@ -484,6 +624,38 @@ const styles = StyleSheet.create({
     color: APP_COLORS.surface,
     fontWeight: '800',
     fontSize: 16,
+  },
+  checkbox: {
+    alignItems: 'center',
+    backgroundColor: APP_COLORS.surface,
+    borderColor: APP_COLORS.border,
+    borderRadius: 6,
+    borderWidth: 1,
+    height: 22,
+    justifyContent: 'center',
+    width: 22,
+  },
+  checkboxChecked: {
+    backgroundColor: APP_COLORS.primary,
+    borderColor: APP_COLORS.primary,
+  },
+  eulaLink: {
+    color: APP_COLORS.primary,
+    fontWeight: '900',
+  },
+  eulaRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 2,
+    paddingBottom: 4,
+    paddingTop: 2,
+  },
+  eulaText: {
+    color: APP_COLORS.textMuted,
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 19,
   },
   link: {
     textAlign: 'center',

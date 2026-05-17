@@ -49,7 +49,7 @@ const DEMO_REWARDS: RewardEntry[] = [
   },
 ];
 
-const POINTS_PER_APPROVED_FOUND_POST = 25;
+const POINTS_PER_REWARDED_POST = 25;
 
 const BADGES = [
   {
@@ -71,26 +71,25 @@ const BADGES = [
 
 export default function RewardsScreen() {
   const uid = auth?.currentUser?.uid;
-  const [approvedFoundPosts, setApprovedFoundPosts] = useState<Post[]>([]);
+  const [rewardedPosts, setRewardedPosts] = useState<Post[]>([]);
   const [rewardEntries, setRewardEntries] = useState<RewardEntry[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (!firebaseReady || !db || !uid) {
-      setApprovedFoundPosts([]);
+      setRewardedPosts([]);
       return;
     }
 
     const postsQuery = query(
       collection(db, 'posts'),
       where('userId', '==', uid),
-      where('status', '==', 'approved'),
     );
 
     const unsubscribe = onSnapshot(
       postsQuery,
       (snapshot) => {
-        setApprovedFoundPosts(
+        setRewardedPosts(
           snapshot.docs
             .map(
               (entry) =>
@@ -99,10 +98,13 @@ export default function RewardsScreen() {
                   ...(entry.data() as Omit<Post, 'id'>),
                 }) satisfies Post,
             )
-            .filter((post) => post.type === 'found'),
+            .filter(
+              (post) =>
+                (post.status === 'approved' || post.status === 'resolved'),
+            ),
         );
       },
-      () => setApprovedFoundPosts([]),
+      () => setRewardedPosts([]),
     );
 
     return unsubscribe;
@@ -146,15 +148,15 @@ export default function RewardsScreen() {
   }, [uid]);
 
   const earnedPoints = useMemo(() => {
-    const approvedFoundPostPoints =
-      approvedFoundPosts.length * POINTS_PER_APPROVED_FOUND_POST;
+    const postPoints =
+      rewardedPosts.length * POINTS_PER_REWARDED_POST;
     const manualRewardPoints = rewardEntries.reduce(
       (total, reward) => total + reward.points,
       0,
     );
 
-    return approvedFoundPostPoints + manualRewardPoints;
-  }, [approvedFoundPosts.length, rewardEntries]);
+    return postPoints + manualRewardPoints;
+  }, [rewardedPosts.length, rewardEntries]);
 
   const unlockedBadges = BADGES.filter((badge) => earnedPoints >= badge.points);
   const currentBadge = unlockedBadges.at(-1);
@@ -168,22 +170,24 @@ export default function RewardsScreen() {
   const pointsToNext = nextBadge ? Math.max(nextBadge.points - earnedPoints, 0) : 0;
 
   const activity = useMemo(() => {
-    const approvedPostRewards: RewardEntry[] = approvedFoundPosts.map((post) => ({
+    const postRewards: RewardEntry[] = rewardedPosts.map((post) => ({
       id: `post-${post.id}`,
       userId: post.userId ?? '',
-      title: 'Found report approved',
+      title: `${post.type === 'found' ? 'Found' : 'Lost'} report ${
+        post.status === 'resolved' ? 'resolved' : 'approved'
+      }`,
       description: post.title,
-      points: POINTS_PER_APPROVED_FOUND_POST,
+      points: POINTS_PER_REWARDED_POST,
       createdAt: post.approvedAt ?? post.createdAt,
     }));
 
-    return [...rewardEntries, ...approvedPostRewards].sort((left, right) => {
+    return [...rewardEntries, ...postRewards].sort((left, right) => {
       const leftTime = resolvePostDate(left.createdAt)?.getTime() ?? 0;
       const rightTime = resolvePostDate(right.createdAt)?.getTime() ?? 0;
 
       return rightTime - leftTime;
     });
-  }, [approvedFoundPosts, rewardEntries]);
+  }, [rewardedPosts, rewardEntries]);
 
   const emptyMessage = (() => {
     if (!firebaseReady) {
@@ -272,8 +276,8 @@ export default function RewardsScreen() {
 
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>{approvedFoundPosts.length}</Text>
-            <Text style={styles.statLabel}>approved found posts</Text>
+            <Text style={styles.statValue}>{rewardedPosts.length}</Text>
+            <Text style={styles.statLabel}>rewarded posts</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statValue}>{rewardEntries.length}</Text>

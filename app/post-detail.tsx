@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 
 import { auth, db, firebaseReady } from '../services/firebase';
 import CategoryIcon from '../src/components/CategoryIcon';
@@ -21,7 +21,7 @@ import { APP_COLORS } from '../src/constants/colors';
 import type { Post } from '../src/types/post';
 import { formatPostDate } from '../src/utils/timeAgo';
 import { useStore } from '../store/useStore';
-import { hapticLight, hapticSuccess, hapticWarning } from '../utils/haptics';
+import { hapticLight } from '../utils/haptics';
 
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -88,7 +88,6 @@ export default function PostDetailScreen() {
   const accentBorder = isLost ? APP_COLORS.lostBorder : APP_COLORS.foundBorder;
   const isOwner = Boolean(auth?.currentUser?.uid && post.userId === auth.currentUser.uid);
   const isResolved = post.status === 'resolved';
-  const canResolve = isOwner && post.status === 'approved';
   const statusSteps = [
     {
       label: 'Submitted',
@@ -158,59 +157,6 @@ export default function PostDetailScreen() {
         error instanceof Error ? error.message : 'Could not open this conversation.',
       );
     }
-  };
-
-  const handleResolvePost = () => {
-    hapticWarning();
-
-    const firestore = db;
-    const user = auth?.currentUser;
-
-    if (!firestore || !user || !post.id) {
-      Alert.alert('Unavailable', 'Please sign in before marking this post resolved.');
-      return;
-    }
-
-    Alert.alert(
-      'Mark Resolved',
-      `Mark "${post.title}" as returned or claimed? It will be hidden from the home feed.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Mark Resolved',
-          onPress: async () => {
-            try {
-              await updateDoc(doc(firestore, 'posts', post.id), {
-                status: 'resolved',
-                resolvedAt: serverTimestamp(),
-                resolvedBy: user.uid,
-              });
-
-              setPost((current) =>
-                current
-                  ? {
-                      ...current,
-                      status: 'resolved',
-                      resolvedAt: new Date(),
-                      resolvedBy: user.uid,
-                    }
-                  : current,
-              );
-
-              hapticSuccess();
-              Alert.alert('Resolved', 'This post is now hidden from the home feed.');
-            } catch (error) {
-              Alert.alert(
-                'Resolve Failed',
-                error instanceof Error
-                  ? error.message
-                  : 'This post could not be marked resolved.',
-              );
-            }
-          },
-        },
-      ],
-    );
   };
 
   return (
@@ -358,47 +304,52 @@ export default function PostDetailScreen() {
             </View>
           ) : null}
 
-          {canResolve ? (
-            <TouchableOpacity
-              style={[styles.ctaButton, { backgroundColor: APP_COLORS.primary }]}
-              activeOpacity={0.85}
-              onPress={handleResolvePost}
-            >
-              <Ionicons name="checkmark-done-outline" size={18} color="#FFFFFF" />
-              <Text style={styles.ctaButtonText}>Mark as Resolved</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={[
-                styles.ctaButton,
-                { backgroundColor: isResolved ? APP_COLORS.textLight : accentColor },
-              ]}
-              activeOpacity={0.85}
-              onPress={() => void handleContactPoster()}
-              disabled={isOwner || isResolved}
-            >
-              <Ionicons
-                name={
-                  isResolved
-                    ? 'checkmark-done-outline'
-                    : isOwner
-                      ? 'person-outline'
-                      : 'chatbubble-ellipses-outline'
-                }
-                size={18}
-                color="#FFFFFF"
-              />
-              <Text style={styles.ctaButtonText}>
-                {isResolved
-                  ? 'Post Resolved'
+          {!isResolved ? (
+            <View style={styles.claimChecklist}>
+              <Text style={styles.claimChecklistTitle}>Safe handoff checks</Text>
+              {[
+                'Ask for one private proof detail before meeting.',
+                'Meet in a public campus area or the Office.',
+                'Use in-app messages so the claim has a record.',
+              ].map((item) => (
+                <View key={item} style={styles.claimCheckRow}>
+                  <Ionicons name="checkmark-circle-outline" size={15} color={APP_COLORS.found} />
+                  <Text style={styles.claimCheckText}>{item}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          <TouchableOpacity
+            style={[
+              styles.ctaButton,
+              { backgroundColor: isResolved ? APP_COLORS.textLight : accentColor },
+            ]}
+            activeOpacity={0.85}
+            onPress={() => void handleContactPoster()}
+            disabled={isOwner || isResolved}
+          >
+            <Ionicons
+              name={
+                isResolved
+                  ? 'checkmark-done-outline'
                   : isOwner
-                    ? 'This Is Your Post'
-                    : isLost
-                      ? 'I Found This Item'
-                      : 'This Might Be Mine'}
-              </Text>
-            </TouchableOpacity>
-          )}
+                    ? 'person-outline'
+                    : 'chatbubble-ellipses-outline'
+              }
+              size={18}
+              color="#FFFFFF"
+            />
+            <Text style={styles.ctaButtonText}>
+              {isResolved
+                ? 'Post Resolved'
+                : isOwner
+                  ? 'This Is Your Post'
+                  : isLost
+                    ? 'I Found This Item'
+                    : 'This Might Be Mine'}
+            </Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -691,6 +642,32 @@ const styles = StyleSheet.create({
   },
   verificationText: {
     color: APP_COLORS.textMuted,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  claimChecklist: {
+    backgroundColor: APP_COLORS.surface,
+    borderColor: APP_COLORS.border,
+    borderRadius: 18,
+    borderWidth: 1,
+    marginBottom: 14,
+    padding: 14,
+  },
+  claimChecklistTitle: {
+    color: APP_COLORS.text,
+    fontSize: 14,
+    fontWeight: '900',
+    marginBottom: 9,
+  },
+  claimCheckRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 7,
+    marginTop: 6,
+  },
+  claimCheckText: {
+    color: APP_COLORS.textMuted,
+    flex: 1,
     fontSize: 12,
     lineHeight: 18,
   },

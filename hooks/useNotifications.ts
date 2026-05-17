@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import { useRootNavigationState, useRouter } from 'expo-router';
 import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { collection, doc, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -10,34 +9,56 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db, firebaseReady } from '../services/firebase';
 import { useStore } from '../store/useStore';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+type NotificationsModule = typeof import('expo-notifications');
+
+const isExpoGo = Constants.appOwnership === 'expo';
+let notificationsPromise: Promise<NotificationsModule | null> | null = null;
+
+export function getNotificationsModule() {
+  if (isExpoGo) {
+    return Promise.resolve(null);
+  }
+
+  notificationsPromise ??= import('expo-notifications')
+    .then((module) => {
+      module.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldPlaySound: true,
+          shouldSetBadge: true,
+          shouldShowBanner: true,
+          shouldShowList: true,
+        }),
+      });
+
+      return module;
+    })
+    .catch(() => null);
+
+  return notificationsPromise;
+}
 
 export function useNotifications() {
   const rootNavigationState = useRootNavigationState();
   const router = useRouter();
   const setUnreadCount = useStore((state) => state.setUnreadCount);
-  const lastNotificationResponse = Notifications.useLastNotificationResponse();
   const initializedNotificationIds = useRef(false);
   const seenNotificationIds = useRef(new Set<string>());
 
   useEffect(() => {
     let active = true;
 
-    if (Platform.OS === 'android') {
-      Notifications.setNotificationChannelAsync('foxfindz', {
+    void getNotificationsModule().then((notifications) => {
+      if (!active || !notifications || Platform.OS !== 'android') {
+        return;
+      }
+
+      notifications.setNotificationChannelAsync('foxfindz', {
         name: 'FoxFindz',
-        importance: Notifications.AndroidImportance.HIGH,
+        importance: notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#FF6B35',
       }).catch(() => undefined);
-    }
+    });
 
     const authUnsubscribe = auth
       ? onAuthStateChanged(auth, (user) => {
@@ -92,18 +113,24 @@ export function useNotifications() {
               const message =
                 typeof data.message === 'string' ? data.message : 'You have a new FoxFindz update.';
 
-              Notifications.scheduleNotificationAsync({
-                content: {
-                  title: 'FoxFindz',
-                  body: message,
-                  data: {
-                    postId: typeof data.postId === 'string' ? data.postId : '',
-                    type: typeof data.type === 'string' ? data.type : 'update',
+              void getNotificationsModule().then((notifications) => {
+                if (!notifications) {
+                  return;
+                }
+
+                notifications.scheduleNotificationAsync({
+                  content: {
+                    title: 'FoxFindz',
+                    body: message,
+                    data: {
+                      postId: typeof data.postId === 'string' ? data.postId : '',
+                      type: typeof data.type === 'string' ? data.type : 'update',
+                    },
+                    sound: 'default',
                   },
-                  sound: 'default',
-                },
-                trigger: null,
-              }).catch(() => undefined);
+                  trigger: null,
+                }).catch(() => undefined);
+              });
             });
           }
 
@@ -121,20 +148,34 @@ export function useNotifications() {
   }, [setUnreadCount]);
 
   useEffect(() => {
-    if (!rootNavigationState?.key || !lastNotificationResponse) {
+    if (!rootNavigationState?.key) {
       return;
     }
 
-    const postId = lastNotificationResponse.notification.request.content.data?.postId;
+    let active = true;
+    let subscription: { remove: () => void } | undefined;
 
-    if (typeof postId === 'string' && postId.length > 0) {
-      router.push(`/post-detail?id=${postId}`);
-    } else {
-      router.push('/(tabs)/notifications');
-    }
+    void getNotificationsModule().then((notifications) => {
+      if (!active || !notifications) {
+        return;
+      }
 
-    Notifications.clearLastNotificationResponseAsync().catch(() => undefined);
-  }, [lastNotificationResponse, rootNavigationState?.key, router]);
+      subscription = notifications.addNotificationResponseReceivedListener((response) => {
+        const postId = response.notification.request.content.data?.postId;
+
+        if (typeof postId === 'string' && postId.length > 0) {
+          router.push(`/post-detail?id=${postId}`);
+        } else {
+          router.push('/(tabs)/notifications');
+        }
+      });
+    });
+
+    return () => {
+      active = false;
+      subscription?.remove();
+    };
+  }, [rootNavigationState?.key, router]);
 }
 
 export async function registerForPushNotifications(uid: string) {
@@ -142,11 +183,17 @@ export async function registerForPushNotifications(uid: string) {
     return;
   }
 
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
+  const notifications = await getNotificationsModule();
+
+  if (!notifications) {
+    return;
+  }
+
+  const { status: existingStatus } = await notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
 
   if (existingStatus !== 'granted') {
-    const permission = await Notifications.requestPermissionsAsync();
+    const permission = await notifications.requestPermissionsAsync();
     finalStatus = permission.status;
   }
 
@@ -164,7 +211,7 @@ export async function registerForPushNotifications(uid: string) {
   }
 
   const token = (
-    await Notifications.getExpoPushTokenAsync({
+    await notifications.getExpoPushTokenAsync({
       projectId,
     })
   ).data;
@@ -174,4 +221,14 @@ export async function registerForPushNotifications(uid: string) {
       fcmToken: token,
     }).catch(() => undefined);
   }
+}
+
+export async function getPushPermissionStatus() {
+  const notifications = await getNotificationsModule();
+
+  if (!notifications) {
+    return null;
+  }
+
+  return notifications.getPermissionsAsync();
 }

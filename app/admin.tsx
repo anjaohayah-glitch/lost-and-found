@@ -190,13 +190,9 @@ export default function AdminScreen() {
         approvedBy: auth?.currentUser?.uid ?? null,
       });
 
-      const notified = await notifyPostOwner(post, 'post_approved');
-
       Alert.alert(
         'Approved',
-        notified
-          ? `"${post.title}" is now live in the feed.`
-          : `"${post.title}" is now live in the feed, but the notification could not be sent.`,
+        `"${post.title}" is now live in the feed. The owner will be notified automatically.`,
       );
       setSelectedPost(null);
     } catch (error) {
@@ -225,13 +221,9 @@ export default function AdminScreen() {
               status: 'rejected',
             });
 
-            const notified = await notifyPostOwner(post, 'post_rejected');
-
             Alert.alert(
               'Rejected',
-              notified
-                ? `"${post.title}" was rejected and the user was notified.`
-                : `"${post.title}" was rejected, but the notification could not be sent.`,
+              `"${post.title}" was rejected. The owner will be notified automatically.`,
             );
             setSelectedPost(null);
           } catch (error) {

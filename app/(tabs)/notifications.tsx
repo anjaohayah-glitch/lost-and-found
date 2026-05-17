@@ -11,7 +11,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import * as Notifications from 'expo-notifications';
 import { onAuthStateChanged } from 'firebase/auth';
 import {
   collection,
@@ -35,7 +34,11 @@ import { APP_COLORS } from '../../src/constants/colors';
 import type { TimestampLike } from '../../src/types/post';
 import { formatPostDate, resolvePostDate } from '../../src/utils/timeAgo';
 import { useStore } from '../../store/useStore';
-import { registerForPushNotifications } from '../../hooks/useNotifications';
+import {
+  getPushPermissionStatus,
+  getNotificationsModule,
+  registerForPushNotifications,
+} from '../../hooks/useNotifications';
 import {
   hapticLight,
   hapticMedium,
@@ -110,8 +113,8 @@ export default function NotificationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    Notifications.getPermissionsAsync()
-      .then((permission) => setPushPermission(permission.status))
+    getPushPermissionStatus()
+      .then((permission) => setPushPermission(permission?.status ?? null))
       .catch(() => setPushPermission(null));
   }, []);
 
@@ -264,7 +267,18 @@ export default function NotificationsScreen() {
   const requestPushPermission = async () => {
     hapticMedium();
 
-    const current = await Notifications.getPermissionsAsync().catch(() => null);
+    const notifications = await getNotificationsModule();
+
+    if (!notifications) {
+      setPushPermission(null);
+      Alert.alert(
+        'Development build needed',
+        'Android push notifications are not available in Expo Go. Use a development build to test push alerts.',
+      );
+      return;
+    }
+
+    const current = await notifications.getPermissionsAsync().catch(() => null);
 
     if (current?.status === 'granted') {
       setPushPermission('granted');
@@ -272,7 +286,7 @@ export default function NotificationsScreen() {
       return;
     }
 
-    const requested = await Notifications.requestPermissionsAsync().catch(() => null);
+    const requested = await notifications.requestPermissionsAsync().catch(() => null);
     setPushPermission(requested?.status ?? current?.status ?? null);
 
     if (requested?.status === 'granted') {

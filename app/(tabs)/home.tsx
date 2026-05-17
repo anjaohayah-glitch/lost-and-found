@@ -20,6 +20,7 @@ import PostCard from '../../components/PostCard';
 import { auth, db, firebaseReady } from '../../services/firebase';
 import { CATEGORIES as CATEGORY_OPTIONS } from '../../src/constants/categories';
 import { APP_COLORS } from '../../src/constants/colors';
+import { LOCATIONS } from '../../src/constants/locations';
 import type { Post, PostType } from '../../src/types/post';
 import { buildMockPosts } from '../../src/utils/helpers';
 import { resolvePostDate } from '../../src/utils/timeAgo';
@@ -27,6 +28,7 @@ import { useStore } from '../../store/useStore';
 import { hapticLight } from '../../utils/haptics';
 
 const CATEGORIES = [{ label: 'All', value: 'all', icon: 'apps-outline' as const }, ...CATEGORY_OPTIONS];
+const LOCATION_OPTIONS = ['All areas', ...LOCATIONS] as const;
 
 const DAILY_QUOTES = [
   'Small reports make lost items easier to return.',
@@ -57,6 +59,7 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
+  const [location, setLocation] = useState<(typeof LOCATION_OPTIONS)[number]>('All areas');
   const dailyQuote = useMemo(() => getDailyQuote(), []);
 
   useEffect(() => {
@@ -111,14 +114,26 @@ export default function HomeScreen() {
         (p) =>
           p.title?.toLowerCase().includes(q) ||
           p.description?.toLowerCase().includes(q) ||
-          p.location?.toLowerCase().includes(q),
+          p.location?.toLowerCase().includes(q) ||
+          p.userName?.toLowerCase().includes(q) ||
+          p.category?.toLowerCase().includes(q),
       );
     }
     if (category !== 'all') {
       result = result.filter((p) => p.category?.toLowerCase() === category);
     }
+    if (location !== 'All areas') {
+      result = result.filter((p) => p.location === location);
+    }
     return result;
-  }, [posts, search, category]);
+  }, [posts, search, category, location]);
+
+  const clearFilters = () => {
+    hapticLight();
+    setSearch('');
+    setCategory('all');
+    setLocation('All areas');
+  };
 
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
@@ -143,105 +158,6 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.header}>
-        <View style={styles.topBar}>
-          <TouchableOpacity
-            onPress={() => {
-              hapticLight();
-              setDrawerOpen(true);
-            }}
-            style={styles.headerBtn}
-          >
-            <Ionicons name="menu-outline" size={22} color={APP_COLORS.surface} />
-          </TouchableOpacity>
-
-          <View style={styles.headerMid}>
-            <Ionicons name="paw-outline" size={22} color={APP_COLORS.surface} />
-            <Text style={styles.headerTitle}>FoxFindz</Text>
-          </View>
-
-          <TouchableOpacity
-            onPress={() => router.push('/(tabs)/notifications')}
-            style={styles.headerBtn}
-          >
-            <Ionicons name="notifications-outline" size={22} color={APP_COLORS.surface} />
-            {unreadCount > 0 && (
-              <View style={styles.notifBadge}>
-                <Text style={styles.notifBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.heroHeader}>
-          <View style={styles.heroText}>
-            <Text style={styles.heroKicker}>Campus Lost and Found</Text>
-            <Text style={styles.heroTitle}>
-              {profile?.name ? `Welcome, ${profile.name.split(' ')[0]}` : 'Welcome to FoxFindz'}
-            </Text>
-            <View style={styles.dailyQuote}>
-              <Ionicons name="sparkles-outline" size={13} color="rgba(255,255,255,0.86)" />
-              <Text style={styles.dailyQuoteText}>{dailyQuote}</Text>
-            </View>
-          </View>
-          <TouchableOpacity onPress={handleAvatarPress} style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {(profile?.name ?? 'U').charAt(0).toUpperCase()}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.searchWrap}>
-          <Ionicons name="search-outline" size={16} color={APP_COLORS.textMuted} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search item, place, or detail"
-            placeholderTextColor={APP_COLORS.textLight}
-            value={search}
-            onChangeText={setSearch}
-            returnKeyType="search"
-            clearButtonMode="while-editing"
-          />
-        </View>
-
-        <View style={styles.actionRow}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.actionButtonLost]}
-            onPress={() => handleCreate('lost')}
-            activeOpacity={0.82}
-          >
-            <Ionicons name="search-outline" size={15} color={APP_COLORS.lost} />
-            <Text style={[styles.actionText, { color: APP_COLORS.lost }]}>Report Lost</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionButton, styles.actionButtonFound]}
-            onPress={() => handleCreate('found')}
-            activeOpacity={0.82}
-          >
-            <Ionicons name="hand-left-outline" size={15} color={APP_COLORS.found} />
-            <Text style={[styles.actionText, { color: APP_COLORS.found }]}>Report Found</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.summaryRow}>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>{posts.length}</Text>
-            <Text style={styles.summaryLabel}>{filter === 'lost' ? 'lost reports' : 'found reports'}</Text>
-          </View>
-          <View style={styles.summaryDivider} />
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>{CATEGORIES.length - 1}</Text>
-            <Text style={styles.summaryLabel}>categories</Text>
-          </View>
-          <View style={styles.summaryDivider} />
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>{isOffline ? 'Demo' : 'Live'}</Text>
-            <Text style={styles.summaryLabel}>feed status</Text>
-          </View>
-        </View>
-      </View>
-
       <FlatList
         data={filteredPosts}
         keyExtractor={(item) => item.id}
@@ -257,6 +173,105 @@ export default function HomeScreen() {
         }
         ListHeaderComponent={
           <View>
+            <View style={styles.header}>
+              <View style={styles.topBar}>
+                <TouchableOpacity
+                  onPress={() => {
+                    hapticLight();
+                    setDrawerOpen(true);
+                  }}
+                  style={styles.headerBtn}
+                >
+                  <Ionicons name="menu-outline" size={22} color={APP_COLORS.surface} />
+                </TouchableOpacity>
+
+                <View style={styles.headerMid}>
+                  <Ionicons name="paw-outline" size={22} color={APP_COLORS.surface} />
+                  <Text style={styles.headerTitle}>FoxFindz</Text>
+                </View>
+
+                <TouchableOpacity
+                  onPress={() => router.push('/(tabs)/notifications')}
+                  style={styles.headerBtn}
+                >
+                  <Ionicons name="notifications-outline" size={22} color={APP_COLORS.surface} />
+                  {unreadCount > 0 && (
+                    <View style={styles.notifBadge}>
+                      <Text style={styles.notifBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+          <View style={styles.heroHeader}>
+            <View style={styles.heroText}>
+              <Text style={styles.heroKicker}>Campus Lost and Found</Text>
+              <Text style={styles.heroTitle}>
+                {profile?.name ? `Welcome, ${profile.name.split(' ')[0]}` : 'Welcome to FoxFindz'}
+              </Text>
+              <View style={styles.dailyQuote}>
+                <Ionicons name="sparkles-outline" size={13} color="rgba(255,255,255,0.86)" />
+                <Text style={styles.dailyQuoteText}>{dailyQuote}</Text>
+              </View>
+            </View>
+            <TouchableOpacity onPress={handleAvatarPress} style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {(profile?.name ?? 'U').charAt(0).toUpperCase()}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.searchWrap}>
+            <Ionicons name="search-outline" size={16} color={APP_COLORS.textMuted} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search item, place, or detail"
+              placeholderTextColor={APP_COLORS.textLight}
+              value={search}
+              onChangeText={setSearch}
+              returnKeyType="search"
+              clearButtonMode="while-editing"
+            />
+          </View>
+
+              <View style={styles.actionRow}>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.actionButtonLost]}
+                  onPress={() => handleCreate('lost')}
+                  activeOpacity={0.82}
+                >
+                  <Ionicons name="search-outline" size={15} color={APP_COLORS.lost} />
+                  <Text style={[styles.actionText, { color: APP_COLORS.lost }]}>Report Lost</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.actionButtonFound]}
+                  onPress={() => handleCreate('found')}
+                  activeOpacity={0.82}
+                >
+                  <Ionicons name="hand-left-outline" size={15} color={APP_COLORS.found} />
+                  <Text style={[styles.actionText, { color: APP_COLORS.found }]}>Report Found</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryItem}>
+                  <Text style={styles.summaryValue}>{posts.length}</Text>
+                  <Text style={styles.summaryLabel}>{filter === 'lost' ? 'lost reports' : 'found reports'}</Text>
+                </View>
+                <View style={styles.summaryDivider} />
+                <View style={styles.summaryItem}>
+                  <Text style={styles.summaryValue}>{CATEGORIES.length - 1}</Text>
+                  <Text style={styles.summaryLabel}>categories</Text>
+                </View>
+                <View style={styles.summaryDivider} />
+                <View style={styles.summaryItem}>
+                  <Text style={styles.summaryValue}>{isOffline ? 'Demo' : 'Live'}</Text>
+                  <Text style={styles.summaryLabel}>feed status</Text>
+                </View>
+              </View>
+            </View>
+
             {isOffline && (
               <View style={styles.offlineBar}>
                 <Ionicons name="wifi-outline" size={13} color="#92400E" />
@@ -292,11 +307,11 @@ export default function HomeScreen() {
                   );
                 })}
               </View>
-              <Text style={styles.feedCount}>
-                {filteredPosts.length} post{filteredPosts.length !== 1 ? 's' : ''}
-                {isOffline ? ' (cached)' : ''}
-              </Text>
-            </View>
+            <Text style={styles.feedCount}>
+              {filteredPosts.length} post{filteredPosts.length !== 1 ? 's' : ''}
+              {isOffline ? ' (cached)' : ''}
+            </Text>
+          </View>
 
             <ScrollView
               horizontal
@@ -326,6 +341,42 @@ export default function HomeScreen() {
                 );
               })}
             </ScrollView>
+
+            <View style={styles.locationHeader}>
+              <View style={styles.locationTitleRow}>
+                <Ionicons name="navigate-outline" size={14} color={APP_COLORS.textMuted} />
+                <Text style={styles.locationTitle}>Search range</Text>
+              </View>
+              {(search || category !== 'all' || location !== 'All areas') ? (
+                <TouchableOpacity onPress={clearFilters} style={styles.clearButton}>
+                  <Text style={styles.clearButtonText}>Clear</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.locationChipsRow}
+            >
+              {LOCATION_OPTIONS.map((option) => {
+                const isActive = location === option;
+                return (
+                  <TouchableOpacity
+                    key={option}
+                    onPress={() => {
+                      hapticLight();
+                      setLocation(option);
+                    }}
+                    style={[styles.locationChip, isActive && styles.locationChipActive]}
+                  >
+                    <Text style={[styles.locationChipText, isActive && styles.locationChipTextActive]}>
+                      {option}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
           </View>
         }
         renderItem={({ item }) => <PostCard post={item} />}
@@ -337,7 +388,7 @@ export default function HomeScreen() {
             </Text>
             <Text style={styles.emptySub}>
               {search
-                ? `Try a different keyword or clear the search.`
+                ? 'Try another keyword, category, or search range.'
                 : `Be the first to post a ${filter} item on campus.`}
             </Text>
             {!search && (
@@ -601,6 +652,60 @@ const styles = StyleSheet.create({
   },
   chipText: { fontSize: 12, fontWeight: '600', color: APP_COLORS.textMuted },
   chipTextActive: { color: APP_COLORS.primary },
+  clearButton: {
+    backgroundColor: APP_COLORS.surface,
+    borderColor: APP_COLORS.border,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  clearButtonText: {
+    color: APP_COLORS.primary,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  locationHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  locationTitle: {
+    color: APP_COLORS.textMuted,
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  locationTitleRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 5,
+  },
+  locationChipsRow: {
+    gap: 8,
+    marginBottom: 14,
+  },
+  locationChip: {
+    backgroundColor: APP_COLORS.surface,
+    borderColor: APP_COLORS.border,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+  },
+  locationChipActive: {
+    backgroundColor: APP_COLORS.primary,
+    borderColor: APP_COLORS.primary,
+  },
+  locationChipText: {
+    color: APP_COLORS.textMuted,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  locationChipTextActive: {
+    color: APP_COLORS.surface,
+  },
   listContent: { paddingHorizontal: 14, paddingBottom: 30 },
   empty: { alignItems: 'center', paddingTop: 50, paddingHorizontal: 40 },
   emptyIcon: { marginBottom: 12 },

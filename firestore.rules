@@ -31,6 +31,8 @@ service cloud.firestore {
           'role',
           'isOnline',
           'fcmToken',
+          'eulaAcceptedAt',
+          'eulaVersion',
           'createdAt',
           'updatedAt'
         ]) &&
@@ -58,6 +60,14 @@ service cloud.firestore {
           data.fcmToken is string
         ) &&
         (
+          !data.keys().hasAny(['eulaAcceptedAt']) ||
+          data.eulaAcceptedAt is timestamp
+        ) &&
+        (
+          !data.keys().hasAny(['eulaVersion']) ||
+          (data.eulaVersion is string && data.eulaVersion.size() > 0)
+        ) &&
+        (
           !data.keys().hasAny(['updatedAt']) ||
           data.updatedAt is timestamp
         );
@@ -69,9 +79,14 @@ service cloud.firestore {
           'program',
           'yearLevel',
           'isOnline',
-          'fcmToken'
+          'fcmToken',
+          'eulaAcceptedAt',
+          'eulaVersion'
         ]) &&
         data.role == 'user' &&
+        data.eulaAcceptedAt is timestamp &&
+        data.eulaVersion is string &&
+        data.eulaVersion.size() > 0 &&
         data.email == request.auth.token.email;
     }
 
@@ -399,9 +414,8 @@ service cloud.firestore {
     match /posts/{postId} {
       allow create: if validPostCreate(request.resource.data);
       allow read: if resource.data.status == 'approved' || isAdmin() || isOwner(resource.data.userId);
-      allow update: if (isAdmin() &&
-        (validApprovePostUpdate() || validRejectPostUpdate() || validResolvePostUpdate())) ||
-        (isOwner(resource.data.userId) && validResolvePostUpdate());
+      allow update: if isAdmin() &&
+        (validApprovePostUpdate() || validRejectPostUpdate() || validResolvePostUpdate());
       allow delete: if false;
     }
 

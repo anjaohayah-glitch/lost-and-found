@@ -10,6 +10,8 @@ export interface UserProfile {
   role: 'user' | 'admin';
   isOnline?: boolean;
   fcmToken?: string | null;
+  eulaAcceptedAt?: unknown;
+  eulaVersion?: string;
 }
 
 interface AppState {

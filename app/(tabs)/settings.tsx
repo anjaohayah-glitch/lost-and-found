@@ -154,6 +154,8 @@ export default function SettingsScreen() {
         yearLevel: profileForm.yearLevel,
         isOnline: profile?.isOnline,
         fcmToken: profile?.fcmToken,
+        eulaAcceptedAt: profile?.eulaAcceptedAt,
+        eulaVersion: profile?.eulaVersion,
       });
 
       setEditingProfile(false);
@@ -317,6 +319,11 @@ export default function SettingsScreen() {
               onPress={() => router.push('/admin')}
             />
           ) : null}
+          <SettingsRow
+            icon="document-text-outline"
+            label="View EULA"
+            onPress={() => router.push('/eula')}
+          />
         </View>
 
         <Text style={styles.sectionTitle}>Status</Text>

@@ -68,6 +68,8 @@ export default function RootLayout() {
             role: (data?.role as 'user' | 'admin' | undefined) ?? 'user',
             isOnline: data?.isOnline as boolean | undefined,
             fcmToken: data?.fcmToken as string | null | undefined,
+            eulaAcceptedAt: data?.eulaAcceptedAt,
+            eulaVersion: data?.eulaVersion as string | undefined,
           });
           setAuthResolved(true);
         },
@@ -92,14 +94,16 @@ export default function RootLayout() {
   useEffect(() => {
     const segment0 = segments[0];
     const isSplashRoute = segment0 == null;
-    const isAuthRoute = segment0 === 'login' || segment0 === 'register';
+    const isAuthRoute = segment0 === 'login' || segment0 === 'register' || segment0 === 'eula';
+    const isPublicInfoRoute = segment0 === 'eula';
     const isUserRoute =
       segment0 === '(tabs)' ||
       segment0 === 'lost-form' ||
       segment0 === 'found-form' ||
       segment0 === 'report' ||
       segment0 === 'post-detail' ||
-      segment0 === 'chat';
+      segment0 === 'chat' ||
+      isPublicInfoRoute;
 
     if (!rootNavigationState?.key || !authResolved) {
       return;
@@ -120,7 +124,7 @@ export default function RootLayout() {
     }
 
     if (profile?.role === 'admin') {
-      if (!isSplashRoute && segment0 !== 'admin') {
+      if (!isSplashRoute && segment0 !== 'admin' && !isPublicInfoRoute) {
         router.replace('/admin');
       }
       return;
@@ -144,6 +148,7 @@ export default function RootLayout() {
           <Stack.Screen name="index" />
           <Stack.Screen name="login" />
           <Stack.Screen name="register" />
+          <Stack.Screen name="eula" />
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="lost-form" options={{ presentation: 'modal' }} />
           <Stack.Screen

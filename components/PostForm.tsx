@@ -277,6 +277,19 @@ export default function PostForm({ type }: PostFormProps) {
         value={form.description}
       />
 
+      <View style={styles.safetyPanel}>
+        <View style={styles.safetyIcon}>
+          <Ionicons name="shield-checkmark-outline" size={18} color={accentColor} />
+        </View>
+        <View style={styles.safetyBody}>
+          <Text style={styles.safetyTitle}>Claim check</Text>
+          <Text style={styles.safetyText}>
+            Keep one proof detail private, like a hidden mark, exact contents, or last known use.
+            Ask for it before returning an item.
+          </Text>
+        </View>
+      </View>
+
       {/* Category */}
       <Text style={[styles.label, { color: colors.text }]}>Category</Text>
       <View style={styles.chipRow}>
@@ -436,6 +449,41 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   textArea: { minHeight: 120 },
+
+  safetyPanel: {
+    alignItems: 'center',
+    backgroundColor: APP_COLORS.surface,
+    borderColor: APP_COLORS.border,
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+    padding: 13,
+  },
+  safetyIcon: {
+    alignItems: 'center',
+    backgroundColor: APP_COLORS.surfaceAlt,
+    borderRadius: 14,
+    height: 42,
+    justifyContent: 'center',
+    width: 42,
+  },
+  safetyBody: {
+    flex: 1,
+    minWidth: 0,
+  },
+  safetyTitle: {
+    color: APP_COLORS.text,
+    fontSize: 14,
+    fontWeight: '900',
+    marginBottom: 3,
+  },
+  safetyText: {
+    color: APP_COLORS.textMuted,
+    fontSize: 12,
+    lineHeight: 18,
+  },
 
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
   chip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
