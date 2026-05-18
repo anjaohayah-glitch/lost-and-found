@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { onAuthStateChanged } from 'firebase/auth';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 
 import OfflineBanner from '../../components/OfflineBanner';
@@ -70,10 +71,23 @@ const BADGES = [
 ];
 
 export default function RewardsScreen() {
-  const uid = auth?.currentUser?.uid;
+  const [uid, setUid] = useState(auth?.currentUser?.uid);
   const [rewardedPosts, setRewardedPosts] = useState<Post[]>([]);
   const [rewardEntries, setRewardEntries] = useState<RewardEntry[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (!firebaseReady || !auth) {
+      setUid(undefined);
+      return;
+    }
+
+    setUid(auth.currentUser?.uid);
+
+    return onAuthStateChanged(auth, (user) => {
+      setUid(user?.uid);
+    });
+  }, []);
 
   useEffect(() => {
     if (!firebaseReady || !db || !uid) {

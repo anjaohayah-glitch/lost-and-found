@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { sendEmailVerification, sendPasswordResetEmail, signInWithEmailAndPassword, signOut } from '@firebase/auth';
+import { sendPasswordResetEmail, signInWithEmailAndPassword } from '@firebase/auth';
 
 import OfflineBanner from '../components/OfflineBanner';
 import FoxLogo from '../components/FoxLogo';
@@ -23,6 +23,29 @@ import {
 } from '../services/firebase';
 import { APP_COLORS } from '../src/constants/colors';
 import { hapticLight, hapticMedium, hapticWarning } from '../utils/haptics';
+
+function getPasswordResetErrorMessage(error: unknown) {
+  const code =
+    typeof error === 'object' && error && 'code' in error
+      ? String(error.code)
+      : '';
+
+  if (code === 'auth/invalid-email') {
+    return 'Please enter a valid email address.';
+  }
+
+  if (code === 'auth/user-not-found') {
+    return 'No FoxFindz account uses that email address.';
+  }
+
+  if (code === 'auth/too-many-requests') {
+    return 'Too many reset attempts. Please wait a few minutes, then try again.';
+  }
+
+  return error instanceof Error
+    ? error.message
+    : 'Password reset could not be sent.';
+}
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -51,17 +74,7 @@ export default function LoginScreen() {
 
     try {
       setLoading(true);
-      const credential = await signInWithEmailAndPassword(auth, email.trim(), password);
-
-      if (!credential.user.emailVerified) {
-        await sendEmailVerification(credential.user).catch(() => undefined);
-        await signOut(auth).catch(() => undefined);
-        Alert.alert(
-          'Verify your email',
-          'Please open the verification link sent to your email before signing in.',
-        );
-        return;
-      }
+      await signInWithEmailAndPassword(auth, email.trim(), password);
     } catch {
       Alert.alert('Login Failed', 'Wrong email or password.');
     } finally {
@@ -77,7 +90,7 @@ export default function LoginScreen() {
       return;
     }
 
-    const trimmedEmail = email.trim();
+    const trimmedEmail = email.trim().toLowerCase();
 
     if (!trimmedEmail) {
       hapticWarning();
@@ -88,11 +101,14 @@ export default function LoginScreen() {
     try {
       setLoading(true);
       await sendPasswordResetEmail(auth, trimmedEmail);
-      Alert.alert('Password Reset Sent', `Check ${trimmedEmail} for the reset link.`);
+      Alert.alert(
+        'Password Reset Requested',
+        `If ${trimmedEmail} is registered, Firebase will send a reset link. Check Spam or Promotions if it is not in your inbox.`,
+      );
     } catch (error) {
       Alert.alert(
         'Reset Failed',
-        error instanceof Error ? error.message : 'Password reset could not be sent.',
+        getPasswordResetErrorMessage(error),
       );
     } finally {
       setLoading(false);
@@ -101,11 +117,12 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.keyboard}
     >
       <ScrollView
         contentContainerStyle={styles.container}
+        keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
       >
         {!firebaseReady ? (

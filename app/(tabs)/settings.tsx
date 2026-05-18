@@ -83,6 +83,29 @@ function SettingsRow({ destructive, icon, label, onPress, value }: SettingsRowPr
   );
 }
 
+function getPasswordResetErrorMessage(error: unknown) {
+  const code =
+    typeof error === 'object' && error && 'code' in error
+      ? String(error.code)
+      : '';
+
+  if (code === 'auth/invalid-email') {
+    return 'Please enter a valid email address.';
+  }
+
+  if (code === 'auth/user-not-found') {
+    return 'No FoxFindz account uses that email address.';
+  }
+
+  if (code === 'auth/too-many-requests') {
+    return 'Too many reset attempts. Please wait a few minutes, then try again.';
+  }
+
+  return error instanceof Error
+    ? error.message
+    : 'Password reset could not be sent.';
+}
+
 export default function SettingsScreen() {
   const router = useRouter();
   const isOffline = useStore((state) => state.isOffline);
@@ -173,7 +196,7 @@ export default function SettingsScreen() {
   const handleChangePassword = async () => {
     hapticMedium();
 
-    const email = profile?.email ?? auth?.currentUser?.email ?? '';
+    const email = (profile?.email ?? auth?.currentUser?.email ?? '').trim().toLowerCase();
 
     if (!firebaseReady || !auth) {
       Alert.alert('Demo mode', 'Password reset needs Firebase auth to be enabled.');
@@ -187,11 +210,12 @@ export default function SettingsScreen() {
 
     try {
       await sendPasswordResetEmail(auth, email);
-      Alert.alert('Password reset sent', `Check ${email} for the reset link.`);
+      Alert.alert(
+        'Password reset requested',
+        `If ${email} is registered, Firebase will send a reset link. Check Spam or Promotions if it is not in your inbox.`,
+      );
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Password reset could not be sent.';
-      Alert.alert('Reset failed', message);
+      Alert.alert('Reset failed', getPasswordResetErrorMessage(error));
     }
   };
 

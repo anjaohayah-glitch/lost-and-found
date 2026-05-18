@@ -43,6 +43,7 @@
         "android.permission.VIBRATE",
         "android.permission.RECEIVE_BOOT_COMPLETED"
       ],
+      "softwareKeyboardLayoutMode": "resize",
       "predictiveBackGestureEnabled": false
     },
     "web": {

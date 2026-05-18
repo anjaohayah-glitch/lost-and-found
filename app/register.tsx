@@ -18,8 +18,6 @@ import type { User } from '@firebase/auth';
 import {
   createUserWithEmailAndPassword,
   deleteUser,
-  sendEmailVerification,
-  signOut,
   updateProfile,
 } from '@firebase/auth';
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
@@ -183,15 +181,13 @@ export default function RegisterScreen() {
         createdAt: serverTimestamp(),
       });
 
-      await sendEmailVerification(credential.user).catch(() => undefined);
       await clearDraft(REGISTER_DRAFT_KEY).catch(() => undefined);
-      await signOut(auth);
 
       hapticSuccess();
-      Alert.alert('Verify your email', `We sent a verification link to ${email}. Please verify it before signing in.`, [
+      Alert.alert('Registration Complete', 'Your account has been created.', [
         {
           text: 'OK',
-          onPress: () => router.replace('/login'),
+          onPress: () => router.replace('/(tabs)/home'),
         },
       ]);
     } catch (error) {
@@ -235,11 +231,12 @@ export default function RegisterScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.keyboard}
     >
       <ScrollView
         contentContainerStyle={styles.container}
+        keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
       >
         {!firebaseReady ? (
